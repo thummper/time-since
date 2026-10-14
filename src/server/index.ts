@@ -5,6 +5,7 @@ import { serve } from '@hono/node-server'
 import { createApp } from './app.ts'
 import { startOverdueInterval } from './jobs/scheduler.ts'
 import { createWebPushSender } from './push/sender.ts'
+import { runBackup } from './jobs/backup.ts'
 import { cleanupDemoUsers } from './demo/cleanup.ts'
 import { openDb } from './db/client.ts'
 import { DEFAULT_LIMITS, relaxLimits } from './security/rateLimit.ts'
@@ -33,6 +34,16 @@ serve({ fetch: app.fetch, port }, (info) => {
 const cleanup = (): void => void cleanupDemoUsers(db, Date.now())
 cleanup()
 new Cron('0 * * * *', cleanup)
+
+// KTD14: a nightly VACUUM INTO copy at 02:30, keeping the newest 14.
+const backupDir = process.env.BACKUP_DIR ?? 'data/backups'
+new Cron('30 2 * * *', () => {
+  try {
+    console.log(`backup written: ${runBackup({ db, dir: backupDir })}`)
+  } catch (error) {
+    console.error('backup failed', error)
+  }
+})
 
 // KTD10: the overdue check runs every 60 seconds, and only when VAPID is configured.
 if (vapidPublicKey && vapidPrivateKey && vapidSubject) {

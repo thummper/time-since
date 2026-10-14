@@ -1,0 +1,32 @@
+# Portainer stack: the app plus a Cloudflare Tunnel. Run exactly one replica.
+# Set the variables below in the stack's environment section.
+services:
+  app:
+    build: .
+    image: time-since:local
+    restart: unless-stopped
+    # Port 3000 is reachable only on the stack network (cloudflared uses http://app:3000).
+    # For LAN testing, uncomment:
+    # ports:
+    #   - '3000:3000'
+    environment:
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:?set PUBLIC_ORIGIN, for example https://time.thummper.net}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-}
+    volumes:
+      - data:/data
+    # To keep backups on other storage, mount it here and keep BACKUP_DIR=/data/backups:
+    #   - /mnt/backup/time-since:/data/backups
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?set TUNNEL_TOKEN}
+    depends_on:
+      - app
+
+volumes:
+  data:

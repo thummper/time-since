@@ -23,7 +23,7 @@ export default tseslint.config(
     languageOptions: { globals: globals.browser },
   },
   {
-    files: ['src/server/**/*', 'tests/**/*', '*.config.{js,ts}'],
+    files: ['src/server/**/*', 'tests/**/*', 'scripts/**/*', '*.config.{js,ts}'],
     languageOptions: { globals: globals.node },
   },
   prettier,
