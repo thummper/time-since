@@ -7,6 +7,7 @@ import { authMiddleware, type AuthEnv } from './auth/middleware.ts'
 import { authRoutes } from './auth/routes.ts'
 import { openDb, type Db } from './db/client.ts'
 import { DEFAULT_LIMITS, type LimitSettings } from './security/rateLimit.ts'
+import { timerRoutes } from './timers/routes.ts'
 
 export interface AppOptions {
   /** Directory holding the built client. */
@@ -19,7 +20,10 @@ export interface AppOptions {
    * when it is https, and not Secure when it is plain http (local development).
    */
   publicOrigin?: string
-  limits?: LimitSettings
+  /** Overrides for the default rate limits. */
+  limits?: Partial<LimitSettings>
+  /** Server clock in epoch ms. Tests inject a fake one. */
+  now?: () => number
   /** Cap on non-demo accounts (R5). */
   maxRealAccounts?: number
 }
@@ -60,6 +64,7 @@ export function createApp(options: AppOptions = {}): Hono<AuthEnv> {
   const clientDir = resolve(options.clientDir ?? join(process.cwd(), 'dist', 'client'))
   const db = options.db ?? openDb(':memory:')
   const publicOrigin = options.publicOrigin ?? 'http://localhost:5173'
+  const limits = { ...DEFAULT_LIMITS, ...options.limits }
   const app = new Hono<AuthEnv>()
 
   app.use('/api/*', csrf({ origin: publicOrigin }), secureHeaders())
@@ -69,10 +74,12 @@ export function createApp(options: AppOptions = {}): Hono<AuthEnv> {
     authRoutes({
       db,
       cookie: { secure: publicOrigin.startsWith('https://') },
-      limits: options.limits ?? DEFAULT_LIMITS,
+      limits,
       maxRealAccounts: options.maxRealAccounts ?? MAX_REAL_ACCOUNTS,
     }),
   )
+
+  app.route('/api/timers', timerRoutes({ db, limits, now: options.now ?? Date.now }))
 
   app.get('/api/health', (c) => c.json({ ok: true }))
 
