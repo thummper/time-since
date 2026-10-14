@@ -7,18 +7,29 @@ let db: Db
 afterEach(() => db.$client.close())
 
 function seedUser(email = 'a@example.com') {
-  const [user] = db.insert(users).values({ email, passwordHash: 'x', createdAt: 1 }).returning().all()
-  const [timer] = db.insert(timers).values({ userId: user!.id, name: 'Filter', createdAt: 1 }).returning().all()
+  const [user] = db
+    .insert(users)
+    .values({ email, passwordHash: 'x', createdAt: 1 })
+    .returning()
+    .all()
+  const [timer] = db
+    .insert(timers)
+    .values({ userId: user!.id, name: 'Filter', createdAt: 1 })
+    .returning()
+    .all()
   db.insert(resets).values({ timerId: timer!.id, at: 1, isOrigin: true, createdAt: 1 }).run()
-  db.insert(sessions).values({ idHash: `h-${email}`, userId: user!.id, expiresAt: 9 }).run()
+  db.insert(sessions)
+    .values({ idHash: `h-${email}`, userId: user!.id, expiresAt: 9 })
+    .run()
   db.insert(pushSubscriptions)
     .values({ endpoint: `e-${email}`, userId: user!.id, p256dh: 'p', auth: 'a', createdAt: 1 })
     .run()
   return { user: user!, timer: timer! }
 }
 
-const total = (table: typeof users | typeof timers | typeof resets | typeof sessions | typeof pushSubscriptions) =>
-  db.select({ n: count() }).from(table).get()!.n
+const total = (
+  table: typeof users | typeof timers | typeof resets | typeof sessions | typeof pushSubscriptions,
+) => db.select({ n: count() }).from(table).get()!.n
 
 describe('database', () => {
   it('applies migrations to a fresh in-memory database and enables foreign keys', () => {
@@ -45,7 +56,9 @@ describe('database', () => {
     db = openDb(':memory:')
     const { user } = seedUser()
     db.delete(users).where(eq(users.id, user.id)).run()
-    expect([total(sessions), total(pushSubscriptions), total(timers), total(resets)]).toEqual([0, 0, 0, 0])
+    expect([total(sessions), total(pushSubscriptions), total(timers), total(resets)]).toEqual([
+      0, 0, 0, 0,
+    ])
   })
 
   it('rejects a duplicate push endpoint', () => {
@@ -54,7 +67,13 @@ describe('database', () => {
     expect(() =>
       db
         .insert(pushSubscriptions)
-        .values({ endpoint: 'e-a@example.com', userId: user.id, p256dh: 'p', auth: 'a', createdAt: 1 })
+        .values({
+          endpoint: 'e-a@example.com',
+          userId: user.id,
+          p256dh: 'p',
+          auth: 'a',
+          createdAt: 1,
+        })
         .run(),
     ).toThrow()
   })
@@ -62,9 +81,17 @@ describe('database', () => {
   it('never reuses a deleted reset id', () => {
     db = openDb(':memory:')
     const { timer } = seedUser()
-    const [r] = db.insert(resets).values({ timerId: timer.id, at: 5, createdAt: 5 }).returning().all()
+    const [r] = db
+      .insert(resets)
+      .values({ timerId: timer.id, at: 5, createdAt: 5 })
+      .returning()
+      .all()
     db.delete(resets).where(eq(resets.id, r!.id)).run()
-    const [next] = db.insert(resets).values({ timerId: timer.id, at: 6, createdAt: 6 }).returning().all()
+    const [next] = db
+      .insert(resets)
+      .values({ timerId: timer.id, at: 6, createdAt: 6 })
+      .returning()
+      .all()
     expect(next!.id).toBeGreaterThan(r!.id)
   })
 })

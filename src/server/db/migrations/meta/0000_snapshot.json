@@ -53,9 +53,7 @@
       "indexes": {
         "push_subscriptions_endpoint_unique": {
           "name": "push_subscriptions_endpoint_unique",
-          "columns": [
-            "endpoint"
-          ],
+          "columns": ["endpoint"],
           "isUnique": true
         }
       },
@@ -64,12 +62,8 @@
           "name": "push_subscriptions_user_id_users_id_fk",
           "tableFrom": "push_subscriptions",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -128,10 +122,7 @@
       "indexes": {
         "resets_timer_id_at_idx": {
           "name": "resets_timer_id_at_idx",
-          "columns": [
-            "timer_id",
-            "at"
-          ],
+          "columns": ["timer_id", "at"],
           "isUnique": false
         }
       },
@@ -140,12 +131,8 @@
           "name": "resets_timer_id_timers_id_fk",
           "tableFrom": "resets",
           "tableTo": "timers",
-          "columnsFrom": [
-            "timer_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["timer_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -185,12 +172,8 @@
           "name": "sessions_user_id_users_id_fk",
           "tableFrom": "sessions",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -251,12 +234,8 @@
           "name": "timers_user_id_users_id_fk",
           "tableFrom": "timers",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -308,9 +287,7 @@
       "indexes": {
         "users_email_unique": {
           "name": "users_email_unique",
-          "columns": [
-            "email"
-          ],
+          "columns": ["email"],
           "isUnique": true
         }
       },

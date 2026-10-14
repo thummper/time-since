@@ -62,4 +62,3 @@ export type User = typeof users.$inferSelect
 export type Timer = typeof timers.$inferSelect
 export type Reset = typeof resets.$inferSelect
 export type PushSubscription = typeof pushSubscriptions.$inferSelect
-

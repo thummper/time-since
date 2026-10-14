@@ -12,7 +12,10 @@ let dummyHash: Promise<string> | undefined
  * Verifies a password. A null hash (demo user) or unknown account fails like a
  * wrong password, and still spends one hash's worth of time.
  */
-export async function verifyPassword(storedHash: string | null | undefined, password: string): Promise<boolean> {
+export async function verifyPassword(
+  storedHash: string | null | undefined,
+  password: string,
+): Promise<boolean> {
   if (!storedHash) {
     dummyHash ??= hash('time-since-dummy-password')
     await verify(await dummyHash, password).catch(() => false)

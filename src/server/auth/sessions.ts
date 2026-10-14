@@ -10,10 +10,16 @@ export const SESSION_RENEW_BELOW_MS = 15 * DAY_MS
 export const hashToken = (token: string): string => createHash('sha256').update(token).digest('hex')
 
 /** Creates a session and returns the raw token. Only its SHA-256 hash is stored. */
-export function createSession(db: Db, userId: number, now = Date.now()): { token: string; expiresAt: number } {
+export function createSession(
+  db: Db,
+  userId: number,
+  now = Date.now(),
+): { token: string; expiresAt: number } {
   const token = randomBytes(24).toString('base64url')
   const expiresAt = now + SESSION_LIFETIME_MS
-  db.insert(sessions).values({ idHash: hashToken(token), userId, expiresAt }).run()
+  db.insert(sessions)
+    .values({ idHash: hashToken(token), userId, expiresAt })
+    .run()
   return { token, expiresAt }
 }
 
@@ -38,12 +44,17 @@ export function resolveSession(db: Db, token: string, now = Date.now()): Resolve
   }
   if (row.expiresAt - now < SESSION_RENEW_BELOW_MS) {
     const renewedExpiresAt = now + SESSION_LIFETIME_MS
-    db.update(sessions).set({ expiresAt: renewedExpiresAt }).where(eq(sessions.idHash, idHash)).run()
+    db.update(sessions)
+      .set({ expiresAt: renewedExpiresAt })
+      .where(eq(sessions.idHash, idHash))
+      .run()
     return { user: row.user, renewedExpiresAt }
   }
   return { user: row.user, renewedExpiresAt: null }
 }
 
 export function deleteSession(db: Db, token: string): void {
-  db.delete(sessions).where(eq(sessions.idHash, hashToken(token))).run()
+  db.delete(sessions)
+    .where(eq(sessions.idHash, hashToken(token)))
+    .run()
 }

@@ -2,6 +2,7 @@ import js from '@eslint/js'
 import globals from 'globals'
 import tseslint from 'typescript-eslint'
 import vue from 'eslint-plugin-vue'
+import prettier from 'eslint-config-prettier'
 
 export default tseslint.config(
   { ignores: ['dist', 'node_modules', 'test-results', 'playwright-report'] },
@@ -20,4 +21,5 @@ export default tseslint.config(
     files: ['src/server/**/*', 'tests/**/*', '*.config.{js,ts}'],
     languageOptions: { globals: globals.node },
   },
+  prettier,
 )

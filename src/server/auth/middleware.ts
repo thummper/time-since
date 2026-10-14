@@ -18,7 +18,12 @@ export interface CookieSettings {
   secure: boolean
 }
 
-export function setSessionCookie(c: Context, cookie: CookieSettings, token: string, expiresAt: number): void {
+export function setSessionCookie(
+  c: Context,
+  cookie: CookieSettings,
+  token: string,
+  expiresAt: number,
+): void {
   setCookie(c, SESSION_COOKIE, token, {
     httpOnly: true,
     secure: cookie.secure,
@@ -39,7 +44,8 @@ export function authMiddleware(db: Db, cookie: CookieSettings): MiddlewareHandle
     const token = getCookie(c, SESSION_COOKIE)
     const resolved = token ? resolveSession(db, token) : null
     c.set('user', resolved?.user ?? null)
-    if (token && resolved?.renewedExpiresAt) setSessionCookie(c, cookie, token, resolved.renewedExpiresAt)
+    if (token && resolved?.renewedExpiresAt)
+      setSessionCookie(c, cookie, token, resolved.renewedExpiresAt)
     await next()
   }
 }

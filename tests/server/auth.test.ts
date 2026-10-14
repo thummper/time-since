@@ -58,9 +58,15 @@ describe('register and me', () => {
   it('rejects a bad email and a password outside 8..256 characters', async () => {
     const { app } = setup()
     expect((await post(app, '/api/auth/register', creds('nope'))).status).toBe(400)
-    expect((await post(app, '/api/auth/register', creds('b@example.com', 'short'))).status).toBe(400)
-    expect((await post(app, '/api/auth/register', creds('c@example.com', 'x'.repeat(257)))).status).toBe(400)
-    expect((await post(app, '/api/auth/register', creds('d@example.com', 'x'.repeat(256)))).status).toBe(201)
+    expect((await post(app, '/api/auth/register', creds('b@example.com', 'short'))).status).toBe(
+      400,
+    )
+    expect(
+      (await post(app, '/api/auth/register', creds('c@example.com', 'x'.repeat(257)))).status,
+    ).toBe(400)
+    expect(
+      (await post(app, '/api/auth/register', creds('d@example.com', 'x'.repeat(256)))).status,
+    ).toBe(201)
   })
 
   it('GET /me without a session returns 401', async () => {
@@ -132,7 +138,11 @@ describe('logout', () => {
   it('deletes the push subscription for that endpoint and the current user only', async () => {
     const { app, db: d } = setup()
     const cookie = cookieFrom(await post(app, '/api/auth/register', creds()))
-    const other = d.insert(users).values({ email: 'o@example.com', passwordHash: 'x', createdAt: 1 }).returning().get()
+    const other = d
+      .insert(users)
+      .values({ email: 'o@example.com', passwordHash: 'x', createdAt: 1 })
+      .returning()
+      .get()
     const mine = d.select().from(users).where(eq(users.email, 'a@example.com')).get()!
     d.insert(pushSubscriptions)
       .values([
@@ -141,10 +151,22 @@ describe('logout', () => {
       ])
       .run()
     await post(app, '/api/auth/logout', { endpoint: 'e-other' }, { cookie })
-    expect(d.select().from(pushSubscriptions).all().map((r) => r.endpoint)).toEqual(['e-mine', 'e-other'])
+    expect(
+      d
+        .select()
+        .from(pushSubscriptions)
+        .all()
+        .map((r) => r.endpoint),
+    ).toEqual(['e-mine', 'e-other'])
     const cookie2 = cookieFrom(await post(app, '/api/auth/login', creds()))
     await post(app, '/api/auth/logout', { endpoint: 'e-mine' }, { cookie: cookie2 })
-    expect(d.select().from(pushSubscriptions).all().map((r) => r.endpoint)).toEqual(['e-other'])
+    expect(
+      d
+        .select()
+        .from(pushSubscriptions)
+        .all()
+        .map((r) => r.endpoint),
+    ).toEqual(['e-other'])
   })
 })
 
@@ -154,14 +176,18 @@ describe('session lifetime', () => {
   it('treats an expired session as 401', async () => {
     const { app, db: d } = setup()
     const cookie = cookieFrom(await post(app, '/api/auth/register', creds()))
-    d.update(sessions).set({ expiresAt: Date.now() - 1000 }).run()
+    d.update(sessions)
+      .set({ expiresAt: Date.now() - 1000 })
+      .run()
     expect((await me(app, cookie)).status).toBe(401)
   })
 
   it('renews a session with 10 days left to 30 days and refreshes the cookie', async () => {
     const { app, db: d } = setup()
     const cookie = cookieFrom(await post(app, '/api/auth/register', creds()))
-    d.update(sessions).set({ expiresAt: Date.now() + 10 * DAY }).run()
+    d.update(sessions)
+      .set({ expiresAt: Date.now() + 10 * DAY })
+      .run()
     const res = await me(app, cookie)
     expect(res.status).toBe(200)
     expect(d.select().from(sessions).get()!.expiresAt).toBeGreaterThan(Date.now() + 29.9 * DAY)
@@ -189,7 +215,10 @@ describe('csrf and headers', () => {
     const { app } = setup()
     const res = await app.request('/api/auth/login', {
       method: 'POST',
-      headers: { origin: 'https://evil.example', 'content-type': 'application/x-www-form-urlencoded' },
+      headers: {
+        origin: 'https://evil.example',
+        'content-type': 'application/x-www-form-urlencoded',
+      },
       body: 'email=a%40example.com&password=correct+horse',
     })
     expect(res.status).toBe(403)
@@ -197,7 +226,10 @@ describe('csrf and headers', () => {
 
   it('accepts a POST whose Origin equals PUBLIC_ORIGIN on a plain-http request URL', async () => {
     const { app } = setup()
-    const res = await app.request('http://localhost/api/auth/logout', { method: 'POST', headers: { origin: ORIGIN } })
+    const res = await app.request('http://localhost/api/auth/logout', {
+      method: 'POST',
+      headers: { origin: ORIGIN },
+    })
     expect(res.status).toBe(200)
   })
 
@@ -215,7 +247,11 @@ describe('account cap', () => {
       .values([
         { email: 'r1@example.com', passwordHash: 'x', createdAt: 1 },
         { email: 'r2@example.com', passwordHash: 'x', createdAt: 1 },
-        ...[1, 2, 3, 4, 5].map((n) => ({ email: `demo-${n}@demo.invalid`, isDemo: true, createdAt: 1 })),
+        ...[1, 2, 3, 4, 5].map((n) => ({
+          email: `demo-${n}@demo.invalid`,
+          isDemo: true,
+          createdAt: 1,
+        })),
       ])
       .run()
     expect((await post(app, '/api/auth/register', creds('r3@example.com'))).status).toBe(201)
@@ -227,7 +263,13 @@ describe('account cap', () => {
   it('defaults the cap to 1,000 real accounts', async () => {
     const { app, db: d } = setup()
     d.insert(users)
-      .values(Array.from({ length: 1000 }, (_, n) => ({ email: `u${n}@example.com`, passwordHash: 'x', createdAt: 1 })))
+      .values(
+        Array.from({ length: 1000 }, (_, n) => ({
+          email: `u${n}@example.com`,
+          passwordHash: 'x',
+          createdAt: 1,
+        })),
+      )
       .run()
     expect((await post(app, '/api/auth/register', creds('late@example.com'))).status).toBe(403)
   })

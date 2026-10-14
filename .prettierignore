@@ -1,0 +1,4 @@
+dist
+node_modules
+src/server/db/migrations
+package-lock.json

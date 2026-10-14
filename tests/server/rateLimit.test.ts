@@ -12,8 +12,12 @@ function setup(options: Parameters<typeof makeApp>[0] = {}) {
 }
 
 const socket = (address: string) => ({ incoming: { socket: { remoteAddress: address } } })
-const login = (app: ReturnType<typeof setup>, n: number, headers: Record<string, string> = {}, env?: unknown) =>
-  post(app, '/api/auth/login', creds(`user${n}@example.com`, 'wrong password'), headers, env)
+const login = (
+  app: ReturnType<typeof setup>,
+  n: number,
+  headers: Record<string, string> = {},
+  env?: unknown,
+) => post(app, '/api/auth/login', creds(`user${n}@example.com`, 'wrong password'), headers, env)
 
 describe('rate limits', () => {
   it('returns 429 on the 11th login attempt within 15 minutes from one IP', async () => {
@@ -47,14 +51,18 @@ describe('rate limits', () => {
   it('ignores X-Forwarded-For but keys on CF-Connecting-IP', async () => {
     const app = setup({ limits: { registerPerHour: 5, loginPerWindow: 1 } })
     expect((await login(app, 1, { 'cf-connecting-ip': '1.1.1.1' })).status).toBe(401)
-    expect((await login(app, 2, { 'cf-connecting-ip': '1.1.1.1', 'x-forwarded-for': '2.2.2.2' })).status).toBe(429)
+    expect(
+      (await login(app, 2, { 'cf-connecting-ip': '1.1.1.1', 'x-forwarded-for': '2.2.2.2' })).status,
+    ).toBe(429)
     expect((await login(app, 3, { 'cf-connecting-ip': '3.3.3.3' })).status).toBe(401)
   })
 
   it('keys on the socket remote address when CF-Connecting-IP is missing', async () => {
     const app = setup({ limits: { registerPerHour: 5, loginPerWindow: 1 } })
     expect((await login(app, 1, {}, socket('7.7.7.7'))).status).toBe(401)
-    expect((await login(app, 2, { 'x-forwarded-for': '8.8.8.8' }, socket('7.7.7.7'))).status).toBe(429)
+    expect((await login(app, 2, { 'x-forwarded-for': '8.8.8.8' }, socket('7.7.7.7'))).status).toBe(
+      429,
+    )
     expect((await login(app, 3, {}, socket('9.9.9.9'))).status).toBe(401)
   })
 })

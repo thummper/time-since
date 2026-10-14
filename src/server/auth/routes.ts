@@ -30,7 +30,9 @@ function normalizeEmail(value: unknown): string | null {
   return email.length <= 254 && EMAIL_RE.test(email) ? email : null
 }
 
-async function readJson(c: { req: { json: () => Promise<unknown> } }): Promise<Record<string, unknown>> {
+async function readJson(c: {
+  req: { json: () => Promise<unknown> }
+}): Promise<Record<string, unknown>> {
   try {
     const body = await c.req.json()
     return body && typeof body === 'object' ? (body as Record<string, unknown>) : {}
@@ -39,7 +41,12 @@ async function readJson(c: { req: { json: () => Promise<unknown> } }): Promise<R
   }
 }
 
-export function authRoutes({ db, cookie, limits, maxRealAccounts }: AuthRouteOptions): Hono<AuthEnv> {
+export function authRoutes({
+  db,
+  cookie,
+  limits,
+  maxRealAccounts,
+}: AuthRouteOptions): Hono<AuthEnv> {
   const routes = new Hono<AuthEnv>()
 
   routes.post('/register', registerLimiter(limits), async (c) => {
@@ -47,8 +54,15 @@ export function authRoutes({ db, cookie, limits, maxRealAccounts }: AuthRouteOpt
     const email = normalizeEmail(body.email)
     const password = body.password
     if (!email) return c.json({ error: 'Enter a valid email address' }, 400)
-    if (typeof password !== 'string' || password.length < PASSWORD_MIN || password.length > PASSWORD_MAX) {
-      return c.json({ error: `Password must be ${PASSWORD_MIN} to ${PASSWORD_MAX} characters` }, 400)
+    if (
+      typeof password !== 'string' ||
+      password.length < PASSWORD_MIN ||
+      password.length > PASSWORD_MAX
+    ) {
+      return c.json(
+        { error: `Password must be ${PASSWORD_MIN} to ${PASSWORD_MAX} characters` },
+        400,
+      )
     }
     const real = db.select({ n: count() }).from(users).where(eq(users.isDemo, false)).get()!.n
     if (real >= maxRealAccounts) return c.json({ error: 'Registration is full' }, 403)
@@ -58,7 +72,11 @@ export function authRoutes({ db, cookie, limits, maxRealAccounts }: AuthRouteOpt
     const passwordHash = await hashPassword(password)
     let user
     try {
-      user = db.insert(users).values({ email, passwordHash, createdAt: Date.now() }).returning().get()
+      user = db
+        .insert(users)
+        .values({ email, passwordHash, createdAt: Date.now() })
+        .returning()
+        .get()
     } catch {
       // A concurrent register with the same email won the unique index.
       return c.json({ error: 'That email is already registered' }, 409)
@@ -88,7 +106,12 @@ export function authRoutes({ db, cookie, limits, maxRealAccounts }: AuthRouteOpt
       const body = await readJson(c)
       if (typeof body.endpoint === 'string') {
         db.delete(pushSubscriptions)
-          .where(and(eq(pushSubscriptions.endpoint, body.endpoint), eq(pushSubscriptions.userId, user.id)))
+          .where(
+            and(
+              eq(pushSubscriptions.endpoint, body.endpoint),
+              eq(pushSubscriptions.userId, user.id),
+            ),
+          )
           .run()
       }
     }
