@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.server.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": false,
+    "rootDir": "."
+  },
+  "include": ["src/server/**/*", "src/shared/**/*", "tests/server/**/*", "vitest.config.ts"]
+}
