@@ -12,7 +12,7 @@ import { deleteExpiredSessions } from './auth/sessions.ts'
 import { openDb } from './db/client.ts'
 import { DEFAULT_LIMITS, relaxLimits } from './security/rateLimit.ts'
 
-const port = Number(process.env.PORT ?? 3000)
+const port = Number(process.env.PORT ?? 3456)
 const dbPath = process.env.DATABASE_PATH ?? 'data/time-since.db'
 mkdirSync(dirname(dbPath), { recursive: true })
 

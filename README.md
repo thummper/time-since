@@ -11,7 +11,7 @@ Requires Node 24.
 ```bash
 npm ci
 cp .env.example .env   # optional, defaults work
-npm run dev            # server on :3000, Vite client on :5173
+npm run dev            # API server on :3456, Vite client on :5173
 ```
 
 Set `PUBLIC_ORIGIN` to the URL you open in the browser (`http://localhost:5173` in dev). CSRF checks compare against it.

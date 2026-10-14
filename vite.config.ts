@@ -3,7 +3,7 @@ import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
-const apiPort = process.env.PORT ?? '3000'
+const apiPort = process.env.PORT ?? '3456'
 
 export default defineConfig({
   plugins: [
