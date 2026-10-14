@@ -48,6 +48,9 @@ export const useTimersStore = defineStore('timers', () => {
   const holds = ref<Record<number, number>>({})
   const frozenOrder = ref<number[] | null>(null)
 
+  /** Timers with a reset request in flight. */
+  const resetting = ref<Record<number, true>>({})
+
   let latestFetch = 0
 
   function tick(): void {
@@ -193,6 +196,9 @@ export const useTimersStore = defineStore('timers', () => {
 
   /** Logs a reset (now by default). Returns the entry, or null when it failed. */
   async function reset(id: number, input: ResetInput = {}): Promise<ResetView | null> {
+    // A second tap while the first request is pending must not log a second reset.
+    if (resetting.value[id]) return null
+    resetting.value = { ...resetting.value, [id]: true }
     rowErrors.value = without(rowErrors.value, id)
     try {
       const done = await guard(id, () =>
@@ -206,7 +212,13 @@ export const useTimersStore = defineStore('timers', () => {
     } catch (error) {
       rowErrors.value = { ...rowErrors.value, [id]: errorMessage(error) }
       return null
+    } finally {
+      resetting.value = without(resetting.value, id)
     }
+  }
+
+  function isResetting(id: number): boolean {
+    return resetting.value[id] === true
   }
 
   /** Removes a reset completely (R10). Returns false when it failed. */
@@ -259,6 +271,7 @@ export const useTimersStore = defineStore('timers', () => {
     sorted,
     byId,
     isHeld,
+    isResetting,
     releaseHold,
     startTicker,
     clear,

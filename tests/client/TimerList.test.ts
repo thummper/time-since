@@ -126,6 +126,34 @@ describe('TimerList', () => {
     expect(wrapper.find('[data-testid="reset-state"]').exists()).toBe(false)
   })
 
+  it('logs one reset for two quick taps while the first request is pending', async () => {
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => (release = resolve))
+    const { count } = installFetch([
+      meRoute(REAL_USER),
+      listRoute(timerView({ id: 1, name: 'A' })),
+      [
+        'POST',
+        /^\/api\/timers\/1\/resets$/,
+        async () => {
+          await gate
+          return [201, { reset: resetView({ id: 99, at: T0 }) }]
+        },
+      ],
+    ])
+    const { wrapper } = await mountApp('/')
+    const button = wrapper.find('button[aria-label="Reset A"]')
+    await button.trigger('click')
+    await button.trigger('click')
+    expect(button.attributes('aria-busy')).toBe('true')
+    expect(count('POST', /\/resets$/)).toBe(1)
+    release()
+    await flushPromises()
+    expect(count('POST', /\/resets$/)).toBe(1)
+    expect(wrapper.findAll('[role="status"]')).toHaveLength(1)
+    expect(wrapper.find('button[aria-label="Reset A"]').attributes('disabled')).toBeUndefined()
+  })
+
   it('stacks one undo toast per reset', async () => {
     installFetch([
       meRoute(REAL_USER),

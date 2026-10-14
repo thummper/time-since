@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
 import { flushPromises } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { DAY, installFetch, listRoute, timerView, T0 } from './helpers.ts'
+import { useAuthStore } from '../../src/client/stores/auth.ts'
+import { useTimersStore } from '../../src/client/stores/timers.ts'
+import { useToastsStore } from '../../src/client/stores/toasts.ts'
+import { DAY, installFetch, listRoute, resetView, timerView, T0 } from './helpers.ts'
 import { DEMO_USER, meRoute, mountApp, REAL_USER } from './mountApp.ts'
 
 afterEach(() => {
@@ -117,5 +120,59 @@ describe('session handling', () => {
     await flushPromises()
     await vi.waitFor(() => expect(router.currentRoute.value.name).toBe('welcome'))
     expect(wrapper.text()).not.toContain('Demo expired')
+  })
+
+  describe('previous user data', () => {
+    /** Mounts as user A with a loaded timer and an open undo toast, then makes timers slow. */
+    async function mountAsUserA() {
+      let slow = false
+      const gate = new Promise<void>(() => {})
+      installFetch([
+        meRoute(REAL_USER),
+        [
+          'POST',
+          /^\/api\/auth\/login$/,
+          () => [200, { user: { id: 9, email: 'bob@example.com', isDemo: false } }],
+        ],
+        [
+          'GET',
+          /^\/api\/timers$/,
+          async () => {
+            if (slow) await gate
+            return [200, { now: T0, timers: [timerView({ id: 1, name: 'Ada timer' })] }]
+          },
+        ],
+        [
+          'POST',
+          /^\/api\/timers\/1\/resets$/,
+          () => [201, { reset: resetView({ id: 5, at: T0 }) }],
+        ],
+      ])
+      const { wrapper } = await mountApp('/')
+      await wrapper.find('button[aria-label="Reset Ada timer"]').trigger('click')
+      await flushPromises()
+      const timers = useTimersStore()
+      const toasts = useToastsStore()
+      expect(timers.timers).toHaveLength(1)
+      expect(toasts.toasts).toHaveLength(1)
+      slow = true
+      return { timers, toasts, auth: useAuthStore() }
+    }
+
+    it('clears the timers and toasts when a different user logs in', async () => {
+      const { timers, toasts, auth } = await mountAsUserA()
+      await auth.login('bob@example.com', 'pw')
+      expect(auth.user?.email).toBe('bob@example.com')
+      expect(timers.timers).toEqual([])
+      expect(timers.status).not.toBe('ready')
+      expect(toasts.toasts).toEqual([])
+    })
+
+    it('clears the timers and toasts when the session expires', async () => {
+      const { timers, toasts, auth } = await mountAsUserA()
+      auth.expire()
+      expect(timers.timers).toEqual([])
+      expect(toasts.toasts).toEqual([])
+    })
   })
 })

@@ -43,6 +43,19 @@ describe('TimerCard', () => {
     expect(wrapper.find('button[aria-label="More options for Aquarium"]').exists()).toBe(true)
   })
 
+  it('disables the reset button and marks it busy while a reset is pending', async () => {
+    const wrapper = mountCard({
+      timer: timerView({ id: 1, name: 'Aquarium' }),
+      now: T0,
+      busy: true,
+    })
+    const button = wrapper.find('button[aria-label="Reset Aquarium"]')
+    expect(button.attributes('disabled')).toBeDefined()
+    expect(button.attributes('aria-busy')).toBe('true')
+    await button.trigger('click')
+    expect(wrapper.emitted('reset')).toBeUndefined()
+  })
+
   it('emits reset on click and menu on the menu button', async () => {
     const wrapper = mountCard({ timer: timerView({ id: 1, name: 'Aquarium' }), now: T0 })
     await wrapper.find('button[aria-label="Reset Aquarium"]').trigger('click')

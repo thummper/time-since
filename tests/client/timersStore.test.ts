@@ -45,6 +45,35 @@ describe('timers store', () => {
     expect(store.timers.map((t) => t.id)).toEqual([2])
   })
 
+  it('ignores a second reset of the same timer while the first is pending', async () => {
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => (release = resolve))
+    const { count } = installFetch([
+      listRoute(timerView({ id: 1 }), timerView({ id: 2 })),
+      [
+        'POST',
+        /^\/api\/timers\/\d\/resets$/,
+        async () => {
+          await gate
+          return [201, { reset: resetView({ id: 50, at: T0 }) }]
+        },
+      ],
+    ])
+    const store = useTimersStore()
+    await store.fetchTimers()
+    const first = store.reset(1)
+    expect(store.isResetting(1)).toBe(true)
+    expect(await store.reset(1)).toBeNull()
+    const other = store.reset(2)
+    expect(count('POST', /\/resets$/)).toBe(2)
+    release()
+    expect((await first)?.id).toBe(50)
+    await other
+    expect(store.isResetting(1)).toBe(false)
+    expect((await store.reset(1))?.id).toBe(50)
+    expect(count('POST', /\/resets$/)).toBe(3)
+  })
+
   it('removes a timer when a reset returns 404', async () => {
     installFetch([
       listRoute(timerView({ id: 1 })),

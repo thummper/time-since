@@ -104,6 +104,7 @@ function openAdd(): void {
             :timer="timer"
             :now="timers.now"
             :held="timers.isHeld(timer.id)"
+            :busy="timers.isResetting(timer.id)"
             :error="timers.rowErrors[timer.id]"
             @reset="reset(timer)"
             @menu="dialogTimer = timer"

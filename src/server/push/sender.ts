@@ -27,6 +27,8 @@ export interface VapidConfig {
 }
 
 const TTL_SECONDS = 24 * 60 * 60
+/** Longest wait for one push service answer. A timeout counts as a temporary failure. */
+export const SEND_TIMEOUT_MS = 10_000
 
 export function createWebPushSender(vapid: VapidConfig): PushSender {
   return {
@@ -38,6 +40,7 @@ export function createWebPushSender(vapid: VapidConfig): PushSender {
           {
             TTL: TTL_SECONDS,
             urgency: 'high',
+            timeout: SEND_TIMEOUT_MS,
             vapidDetails: {
               subject: vapid.subject,
               publicKey: vapid.publicKey,

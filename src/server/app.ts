@@ -102,7 +102,7 @@ export function createApp(options: AppOptions = {}): Hono<AuthEnv> {
 
   app.route('/api/timers', timerRoutes({ db, limits, now }))
 
-  app.route('/api/push', pushRoutes({ db, vapidPublicKey: options.vapidPublicKey, now }))
+  app.route('/api/push', pushRoutes({ db, vapidPublicKey: options.vapidPublicKey, limits, now }))
 
   app.get('/api/health', (c) => c.json({ ok: true }))
 

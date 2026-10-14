@@ -13,6 +13,8 @@ const props = defineProps<{
   now: number
   /** True for a short while after a reset, while its undo toast is open. */
   held?: boolean
+  /** True while a reset request is in flight. */
+  busy?: boolean
   error?: string | null
 }>()
 const emit = defineEmits<{ reset: []; menu: [] }>()
@@ -47,6 +49,7 @@ function onClick(): void {
     longPressed = false
     return
   }
+  if (props.busy) return
   emit('reset')
 }
 
@@ -95,6 +98,8 @@ onBeforeUnmount(() => clearTimeout(pressTimer))
           type="button"
           class="btn btn-primary min-h-[48px] min-w-[48px]"
           :aria-label="`Reset ${timer.name}`"
+          :aria-busy="busy ? 'true' : undefined"
+          :disabled="busy"
           @pointerdown="pressStart"
           @pointerup="pressEnd"
           @pointerleave="pressEnd"
@@ -113,7 +118,12 @@ onBeforeUnmount(() => clearTimeout(pressTimer))
       class="notice-error flex items-center justify-between gap-2 rounded-none"
     >
       <span>{{ error }}</span>
-      <button type="button" class="btn btn-quiet min-h-[44px] underline" @click="emit('reset')">
+      <button
+        type="button"
+        class="btn btn-quiet min-h-[44px] underline"
+        :disabled="busy"
+        @click="emit('reset')"
+      >
         Retry
       </button>
     </div>

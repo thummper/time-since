@@ -55,3 +55,39 @@ describe('static cache headers', () => {
     expect(asset.headers.get('cache-control')).toBe('public, max-age=31536000, immutable')
   })
 })
+
+describe('static path traversal guard', () => {
+  it('never serves a file outside clientDir', async () => {
+    const parent = mkdtempSync(join(tmpdir(), 'time-since-parent-'))
+    try {
+      const inner = join(parent, 'client')
+      mkdirSync(inner)
+      writeFileSync(join(inner, 'index.html'), SHELL)
+      writeFileSync(join(parent, 'secret.txt'), 'TOP-SECRET')
+      const app = createApp({ clientDir: inner })
+      const paths = [
+        '/../secret.txt',
+        '/..%2fsecret.txt',
+        '/%2e%2e/secret.txt',
+        '/%2e%2e%2fsecret.txt',
+        '/..%5csecret.txt',
+        '/..\\secret.txt',
+        '/assets/../../secret.txt',
+        '/assets/..%2f..%2fsecret.txt',
+        '/%2e%2e%5csecret.txt',
+        '/%E0%A4%A',
+      ]
+      for (const path of paths) {
+        const res = await app.request(path)
+        const body = await res.text()
+        expect(body, path).not.toContain('TOP-SECRET')
+        expect(res.status, path).toBe(200)
+        expect(body, path).toBe(SHELL)
+      }
+      writeFileSync(join(inner, 'ok.txt'), 'inside')
+      expect(await (await app.request('/ok.txt')).text()).toBe('inside')
+    } finally {
+      rmSync(parent, { recursive: true, force: true })
+    }
+  })
+})
