@@ -5,6 +5,7 @@ import { csrf } from 'hono/csrf'
 import { secureHeaders } from 'hono/secure-headers'
 import { authMiddleware, type AuthEnv } from './auth/middleware.ts'
 import { authRoutes } from './auth/routes.ts'
+import { demoRoutes, MAX_DEMO_USERS } from './demo/routes.ts'
 import { openDb, type Db } from './db/client.ts'
 import { DEFAULT_LIMITS, type LimitSettings } from './security/rateLimit.ts'
 import { timerRoutes } from './timers/routes.ts'
@@ -26,6 +27,8 @@ export interface AppOptions {
   now?: () => number
   /** Cap on non-demo accounts (R5). */
   maxRealAccounts?: number
+  /** Cap on live demo sandboxes (R7). */
+  maxDemoUsers?: number
 }
 
 export const MAX_REAL_ACCOUNTS = 1000
@@ -76,6 +79,17 @@ export function createApp(options: AppOptions = {}): Hono<AuthEnv> {
       cookie: { secure: publicOrigin.startsWith('https://') },
       limits,
       maxRealAccounts: options.maxRealAccounts ?? MAX_REAL_ACCOUNTS,
+    }),
+  )
+
+  app.route(
+    '/api/demo',
+    demoRoutes({
+      db,
+      cookie: { secure: publicOrigin.startsWith('https://') },
+      limits,
+      now: options.now ?? Date.now,
+      maxDemoUsers: options.maxDemoUsers ?? MAX_DEMO_USERS,
     }),
   )
 

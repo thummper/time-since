@@ -55,3 +55,9 @@ export const requireUser: MiddlewareHandler<AuthEnv> = async (c, next) => {
   if (!c.var.user) return c.json({ error: 'Not logged in' }, 401)
   await next()
 }
+
+/** Rejects demo users with 403. Use after `authMiddleware`, on push and account routes (KTD9). */
+export const forbidDemo: MiddlewareHandler<AuthEnv> = async (c, next) => {
+  if (c.var.user?.isDemo) return c.json({ error: 'Not available in the demo' }, 403)
+  await next()
+}

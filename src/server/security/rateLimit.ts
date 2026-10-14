@@ -5,6 +5,8 @@ import { getClientIp } from './clientIp.ts'
 export interface LimitSettings {
   registerPerHour: number
   loginPerWindow: number
+  /** Demo sandboxes created per IP per hour (R7). */
+  demoPerHour: number
   /** Timer and reset writes per user per minute (R5). */
   writesPerMinute: number
 }
@@ -12,6 +14,7 @@ export interface LimitSettings {
 export const DEFAULT_LIMITS: LimitSettings = {
   registerPerHour: 5,
   loginPerWindow: 10,
+  demoPerHour: 10,
   writesPerMinute: 60,
 }
 
@@ -23,6 +26,7 @@ export function relaxLimits(limits: LimitSettings, factor = 1000): LimitSettings
   return {
     registerPerHour: limits.registerPerHour * factor,
     loginPerWindow: limits.loginPerWindow * factor,
+    demoPerHour: limits.demoPerHour * factor,
     writesPerMinute: limits.writesPerMinute * factor,
   }
 }
@@ -58,6 +62,10 @@ function limiter(
 
 export function registerLimiter(limits: LimitSettings): MiddlewareHandler {
   return limiter(HOUR_MS, limits.registerPerHour, (c) => `register:${getClientIp(c)}`)
+}
+
+export function demoLimiter(limits: LimitSettings): MiddlewareHandler {
+  return limiter(HOUR_MS, limits.demoPerHour, (c) => `demo:${getClientIp(c)}`)
 }
 
 /** Two limiters: one per IP, one per email, both counting every attempt. */
