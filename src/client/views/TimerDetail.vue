@@ -2,11 +2,14 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { formatElapsed } from '../../shared/format.ts'
+import { NOTE_MAX } from '../../shared/limits.ts'
+import { isPastTarget, overdueByMs } from '../../shared/overdue.ts'
 import { errorMessage } from '../api/client.ts'
 import AppIcon from '../components/AppIcon.vue'
 import ModalFrame from '../components/ModalFrame.vue'
 import StatsPanel from '../components/StatsPanel.vue'
 import TimerForm from '../components/TimerForm.vue'
+import { onAppFocus } from '../stores/focus.ts'
 import { useTimersStore } from '../stores/timers.ts'
 
 const route = useRoute()
@@ -39,7 +42,10 @@ const confirmEntryId = ref<number | null>(null)
 
 const elapsedMs = computed(() => (timer.value ? timers.now - timer.value.lastReset.at : 0))
 const overdueMs = computed(() =>
-  timer.value?.targetMs == null ? 0 : elapsedMs.value - timer.value.targetMs,
+  timer.value ? overdueByMs(timer.value.targetMs, timer.value.lastReset.at, timers.now) : 0,
+)
+const overdue = computed(() =>
+  timer.value ? isPastTarget(timer.value.targetMs, timer.value.lastReset.at, timers.now) : false,
 )
 
 const formatWhen = (at: number) =>
@@ -64,19 +70,16 @@ async function load(): Promise<void> {
 
 /** Quiet refresh when the app regains focus. Errors keep the old log on screen. */
 function refreshLog(): void {
-  if (document.visibilityState === 'hidden' || !loaded.value || !timer.value) return
+  if (!loaded.value || !timer.value) return
   void timers.fetchLog(id.value).catch(() => undefined)
 }
 
+let stopFocus: (() => void) | undefined
 onMounted(() => {
   void load()
-  window.addEventListener('focus', refreshLog)
-  document.addEventListener('visibilitychange', refreshLog)
+  stopFocus = onAppFocus(refreshLog)
 })
-onBeforeUnmount(() => {
-  window.removeEventListener('focus', refreshLog)
-  document.removeEventListener('visibilitychange', refreshLog)
-})
+onBeforeUnmount(() => stopFocus?.())
 
 function openEdit(): void {
   editError.value = null
@@ -162,10 +165,10 @@ async function removeEntry(entryId: number): Promise<void> {
     <template v-else>
       <header class="space-y-1">
         <h1 class="break-words text-2xl font-bold">{{ timer.name }}</h1>
-        <p class="text-4xl font-bold tabular-nums" :class="overdueMs > 0 ? 'text-danger' : ''">
+        <p class="text-4xl font-bold tabular-nums" :class="overdue ? 'text-danger' : ''">
           {{ formatElapsed(elapsedMs) }}
         </p>
-        <p v-if="overdueMs > 0" class="flex items-center gap-1 text-sm font-semibold text-danger">
+        <p v-if="overdue" class="flex items-center gap-1 text-sm font-semibold text-danger">
           <AppIcon name="alert" />
           <span>Overdue by {{ formatElapsed(overdueMs) }}</span>
         </p>
@@ -227,7 +230,7 @@ async function removeEntry(entryId: number): Promise<void> {
               <textarea
                 v-model="noteDraft"
                 rows="2"
-                maxlength="280"
+                :maxlength="NOTE_MAX"
                 aria-label="Note"
                 class="field resize-none"
               />

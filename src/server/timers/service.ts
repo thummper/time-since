@@ -1,11 +1,12 @@
 import { and, asc, count, desc, eq } from 'drizzle-orm'
 import type { Db } from '../db/client.ts'
 import { resets, timers, type Reset, type Timer } from '../db/schema.ts'
+import { isPastTarget } from '../../shared/overdue.ts'
 import { lastReset, stats } from '../../shared/stats.ts'
 import type { ResetView, TimerView } from '../../shared/types.ts'
 
 export function isOverdue(targetMs: number | null, last: { at: number }, now: number): boolean {
-  return targetMs !== null && now > last.at + targetMs
+  return isPastTarget(targetMs, last.at, now)
 }
 
 export function toResetView(row: Reset): ResetView {
@@ -43,7 +44,19 @@ export function listTimers(db: Db, userId: number, now: number): TimerView[] {
     .where(eq(timers.userId, userId))
     .orderBy(asc(timers.id))
     .all()
-  return rows.map((timer) => toTimerView(timer, entriesOf(db, timer.id), now))
+  const byTimer = new Map<number, Reset[]>()
+  const all = db
+    .select({ reset: resets })
+    .from(resets)
+    .innerJoin(timers, eq(timers.id, resets.timerId))
+    .where(eq(timers.userId, userId))
+    .all()
+  for (const { reset } of all) {
+    const list = byTimer.get(reset.timerId)
+    if (list) list.push(reset)
+    else byTimer.set(reset.timerId, [reset])
+  }
+  return rows.map((timer) => toTimerView(timer, byTimer.get(timer.id) ?? [], now))
 }
 
 export const timerCount = (db: Db, userId: number): number =>
@@ -77,10 +90,16 @@ export interface TimerChanges {
 }
 
 /** KTD5: a target change that leaves the timer not overdue clears the alert column. */
-export function updateTimer(db: Db, timer: Timer, changes: TimerChanges, now: number): Timer {
+export function updateTimer(
+  db: Db,
+  timer: Timer,
+  changes: TimerChanges,
+  now: number,
+  entries: Reset[] = entriesOf(db, timer.id),
+): Timer {
   const set: Partial<Timer> = { ...changes }
   if ('targetMs' in changes) {
-    const last = lastReset(entriesOf(db, timer.id))!
+    const last = lastReset(entries)!
     if (!isOverdue(changes.targetMs ?? null, last, now)) set.alertedForResetId = null
   }
   return db.update(timers).set(set).where(eq(timers.id, timer.id)).returning().get()
@@ -112,3 +131,10 @@ export const logOf = (db: Db, timerId: number): Reset[] =>
     .where(eq(resets.timerId, timerId))
     .orderBy(desc(resets.at), desc(resets.id))
     .all()
+
+export const setNote = (db: Db, id: number, note: string | null): Reset =>
+  db.update(resets).set({ note }).where(eq(resets.id, id)).returning().get()
+
+export const deleteReset = (db: Db, id: number): void => {
+  db.delete(resets).where(eq(resets.id, id)).run()
+}

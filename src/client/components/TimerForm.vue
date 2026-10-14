@@ -1,11 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-
-const NAME_MAX = 60
-const HOUR_MS = 60 * 60 * 1000
-const DAY_MS = 24 * HOUR_MS
-const TARGET_MIN_MS = HOUR_MS
-const TARGET_MAX_MS = 365 * DAY_MS
+import { DAY_MS, HOUR_MS, NAME_MAX, TARGET_MAX_MS, TARGET_MIN_MS } from '../../shared/limits.ts'
 
 type Unit = 'days' | 'hours'
 

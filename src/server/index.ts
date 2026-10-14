@@ -7,6 +7,8 @@ import { startOverdueInterval } from './jobs/scheduler.ts'
 import { createWebPushSender } from './push/sender.ts'
 import { runBackup } from './jobs/backup.ts'
 import { cleanupDemoUsers } from './demo/cleanup.ts'
+import { MINUTE_MS } from '../shared/limits.ts'
+import { deleteExpiredSessions } from './auth/sessions.ts'
 import { openDb } from './db/client.ts'
 import { DEFAULT_LIMITS, relaxLimits } from './security/rateLimit.ts'
 
@@ -30,8 +32,12 @@ serve({ fetch: app.fetch, port }, (info) => {
   console.log(`time-since listening on http://localhost:${info.port}`)
 })
 
-// KTD10: demo sandboxes older than 24 hours go at start and then every hour.
-const cleanup = (): void => void cleanupDemoUsers(db, Date.now())
+// KTD10: demo sandboxes older than 24 hours and expired sessions go at start and then every hour.
+const cleanup = (): void => {
+  const now = Date.now()
+  cleanupDemoUsers(db, now)
+  deleteExpiredSessions(db, now)
+}
 cleanup()
 new Cron('0 * * * *', cleanup)
 
@@ -54,7 +60,7 @@ if (vapidPublicKey && vapidPrivateKey && vapidSubject) {
       privateKey: vapidPrivateKey,
       subject: vapidSubject,
     }),
-    intervalMs: 60_000,
+    intervalMs: MINUTE_MS,
   })
 } else {
   console.warn(

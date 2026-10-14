@@ -73,15 +73,17 @@ export function createApp(options: AppOptions = {}): Hono<AuthEnv> {
   const db = options.db ?? openDb(':memory:')
   const publicOrigin = options.publicOrigin ?? 'http://localhost:5173'
   const limits = { ...DEFAULT_LIMITS, ...options.limits }
+  const cookie = { secure: publicOrigin.startsWith('https://') }
+  const now = options.now ?? Date.now
   const app = new Hono<AuthEnv>()
 
   app.use('/api/*', csrf({ origin: publicOrigin }), secureHeaders())
-  app.use('/api/*', authMiddleware(db, { secure: publicOrigin.startsWith('https://') }))
+  app.use('/api/*', authMiddleware(db, cookie))
   app.route(
     '/api/auth',
     authRoutes({
       db,
-      cookie: { secure: publicOrigin.startsWith('https://') },
+      cookie,
       limits,
       maxRealAccounts: options.maxRealAccounts ?? MAX_REAL_ACCOUNTS,
     }),
@@ -91,19 +93,16 @@ export function createApp(options: AppOptions = {}): Hono<AuthEnv> {
     '/api/demo',
     demoRoutes({
       db,
-      cookie: { secure: publicOrigin.startsWith('https://') },
+      cookie,
       limits,
-      now: options.now ?? Date.now,
+      now,
       maxDemoUsers: options.maxDemoUsers ?? MAX_DEMO_USERS,
     }),
   )
 
-  app.route('/api/timers', timerRoutes({ db, limits, now: options.now ?? Date.now }))
+  app.route('/api/timers', timerRoutes({ db, limits, now }))
 
-  app.route(
-    '/api/push',
-    pushRoutes({ db, vapidPublicKey: options.vapidPublicKey, now: options.now ?? Date.now }),
-  )
+  app.route('/api/push', pushRoutes({ db, vapidPublicKey: options.vapidPublicKey, now }))
 
   app.get('/api/health', (c) => c.json({ ok: true }))
 

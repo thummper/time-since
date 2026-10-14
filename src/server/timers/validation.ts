@@ -1,8 +1,6 @@
-export const NAME_MAX = 60
-export const NOTE_MAX = 280
-export const TARGET_MIN_MS = 60 * 60 * 1000
-export const TARGET_MAX_MS = 365 * 24 * 60 * 60 * 1000
-export const FUTURE_TOLERANCE_MS = 60_000
+import { MINUTE_MS, NAME_MAX, NOTE_MAX, TARGET_MAX_MS, TARGET_MIN_MS } from '../../shared/limits.ts'
+
+export const FUTURE_TOLERANCE_MS = MINUTE_MS
 export const MAX_TIMERS = 50
 export const MAX_RESETS = 1000
 

@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { NOTE_MAX } from '../../shared/limits.ts'
 import ModalFrame from './ModalFrame.vue'
-
-const NOTE_MAX = 280
 
 defineProps<{ timerName: string }>()
 const emit = defineEmits<{

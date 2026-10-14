@@ -1,9 +1,9 @@
 import { createHash, randomBytes } from 'node:crypto'
-import { eq } from 'drizzle-orm'
+import { eq, lt } from 'drizzle-orm'
 import type { Db } from '../db/client.ts'
 import { sessions, users, type User } from '../db/schema.ts'
+import { DAY_MS } from '../../shared/limits.ts'
 
-const DAY_MS = 24 * 60 * 60 * 1000
 export const SESSION_LIFETIME_MS = 30 * DAY_MS
 export const SESSION_RENEW_BELOW_MS = 15 * DAY_MS
 
@@ -57,4 +57,9 @@ export function deleteSession(db: Db, token: string): void {
   db.delete(sessions)
     .where(eq(sessions.idHash, hashToken(token)))
     .run()
+}
+
+/** Deletes every session whose expiry is before `now`. Returns the count. */
+export function deleteExpiredSessions(db: Db, now: number): number {
+  return db.delete(sessions).where(lt(sessions.expiresAt, now)).run().changes
 }

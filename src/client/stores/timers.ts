@@ -1,7 +1,10 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
+import { isPastTarget } from '../../shared/overdue.ts'
+import { lastReset } from '../../shared/stats.ts'
 import type { ResetView, TimerList, TimerView } from '../../shared/types.ts'
 import { api, ApiError, errorMessage } from '../api/client.ts'
+import { onAppFocus } from './focus.ts'
 
 export type LoadStatus = 'idle' | 'loading' | 'ready' | 'error'
 
@@ -17,7 +20,14 @@ export interface ResetInput {
 
 /** Whether a timer is past its target at `now` (R12). The server flag goes stale as time passes. */
 export function isOverdue(timer: TimerView, now: number): boolean {
-  return timer.targetMs !== null && now - timer.lastReset.at > timer.targetMs
+  return isPastTarget(timer.targetMs, timer.lastReset.at, now)
+}
+
+/** A copy of `record` without `key`. */
+function without<T>(record: Record<number, T>, key: number): Record<number, T> {
+  const { [key]: _removed, ...rest } = record
+  void _removed
+  return rest
 }
 
 export const useTimersStore = defineStore('timers', () => {
@@ -96,12 +106,8 @@ export const useTimersStore = defineStore('timers', () => {
 
   function removeTimer(id: number): void {
     timers.value = timers.value.filter((t) => t.id !== id)
-    const { [id]: _log, ...restLogs } = logs.value
-    void _log
-    logs.value = restLogs
-    const { [id]: _error, ...restErrors } = rowErrors.value
-    void _error
-    rowErrors.value = restErrors
+    logs.value = without(logs.value, id)
+    rowErrors.value = without(rowErrors.value, id)
     if (frozenOrder.value) frozenOrder.value = frozenOrder.value.filter((x) => x !== id)
   }
 
@@ -150,17 +156,10 @@ export const useTimersStore = defineStore('timers', () => {
 
   /** Refetches on focus and when the tab becomes visible (KTD13). Returns a stop function. */
   function watchFocus(): () => void {
-    const refresh = (): void => {
-      if (document.visibilityState === 'hidden') return
+    return onAppFocus(() => {
       releaseAllHolds()
       void fetchTimers({ silent: true })
-    }
-    window.addEventListener('focus', refresh)
-    document.addEventListener('visibilitychange', refresh)
-    return () => {
-      window.removeEventListener('focus', refresh)
-      document.removeEventListener('visibilitychange', refresh)
-    }
+    })
   }
 
   async function createTimer(name: string, targetMs: number | null): Promise<TimerView> {
@@ -186,9 +185,7 @@ export const useTimersStore = defineStore('timers', () => {
   function applyReset(id: number, reset: ResetView): void {
     timers.value = timers.value.map((t) => {
       if (t.id !== id) return t
-      const last = t.lastReset
-      const later = reset.at > last.at || (reset.at === last.at && reset.id > last.id)
-      if (!later) return t
+      if (lastReset([t.lastReset, reset]) === t.lastReset) return t
       const next = { ...t, lastReset: { id: reset.id, at: reset.at } }
       return { ...next, overdue: isOverdue(next, now.value) }
     })
@@ -196,9 +193,7 @@ export const useTimersStore = defineStore('timers', () => {
 
   /** Logs a reset (now by default). Returns the entry, or null when it failed. */
   async function reset(id: number, input: ResetInput = {}): Promise<ResetView | null> {
-    const { [id]: _cleared, ...rest } = rowErrors.value
-    void _cleared
-    rowErrors.value = rest
+    rowErrors.value = without(rowErrors.value, id)
     try {
       const done = await guard(id, () =>
         api.post<{ reset: ResetView }>(`/api/timers/${id}/resets`, input),

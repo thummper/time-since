@@ -1,7 +1,9 @@
-import { and, count, eq } from 'drizzle-orm'
+import { count, eq } from 'drizzle-orm'
 import { Hono, type MiddlewareHandler } from 'hono'
 import type { Db } from '../db/client.ts'
-import { pushSubscriptions, users } from '../db/schema.ts'
+import { users } from '../db/schema.ts'
+import { readJson } from '../http.ts'
+import { removeOwnedSubscription } from '../push/subscriptions.ts'
 import { loginLimiters, registerLimiter, type LimitSettings } from '../security/rateLimit.ts'
 import { getCookie } from 'hono/cookie'
 import {
@@ -28,17 +30,6 @@ function normalizeEmail(value: unknown): string | null {
   if (typeof value !== 'string') return null
   const email = value.trim().toLowerCase()
   return email.length <= 254 && EMAIL_RE.test(email) ? email : null
-}
-
-async function readJson(c: {
-  req: { json: () => Promise<unknown> }
-}): Promise<Record<string, unknown>> {
-  try {
-    const body = await c.req.json()
-    return body && typeof body === 'object' ? (body as Record<string, unknown>) : {}
-  } catch {
-    return {}
-  }
 }
 
 export function authRoutes({
@@ -105,14 +96,7 @@ export function authRoutes({
     if (user) {
       const body = await readJson(c)
       if (typeof body.endpoint === 'string') {
-        db.delete(pushSubscriptions)
-          .where(
-            and(
-              eq(pushSubscriptions.endpoint, body.endpoint),
-              eq(pushSubscriptions.userId, user.id),
-            ),
-          )
-          .run()
+        removeOwnedSubscription(db, body.endpoint, user.id)
       }
     }
     if (token) deleteSession(db, token)

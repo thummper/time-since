@@ -1,5 +1,6 @@
-import type { Context, MiddlewareHandler } from 'hono'
+import type { Context, Env, MiddlewareHandler } from 'hono'
 import { MemoryStore, rateLimiter } from 'hono-rate-limiter'
+import { HOUR_MS, MINUTE_MS } from '../../shared/limits.ts'
 import { getClientIp } from './clientIp.ts'
 
 export interface LimitSettings {
@@ -18,8 +19,7 @@ export const DEFAULT_LIMITS: LimitSettings = {
   writesPerMinute: 60,
 }
 
-const HOUR_MS = 60 * 60 * 1000
-const LOGIN_WINDOW_MS = 15 * 60 * 1000
+const LOGIN_WINDOW_MS = 15 * MINUTE_MS
 
 /** Raises every limit by a factor, for the e2e run (RATE_LIMIT_RELAXED). */
 export function relaxLimits(limits: LimitSettings, factor = 1000): LimitSettings {
@@ -45,18 +45,20 @@ async function readEmail(c: Context): Promise<string | null> {
   }
 }
 
-function limiter(
+/** A fixed-window limiter that answers 429 with `{ error: message }`. */
+export function limiter<E extends Env = Env>(
   windowMs: number,
   limit: number,
-  keyGenerator: (c: Context) => string | Promise<string>,
-): MiddlewareHandler {
-  return rateLimiter({
+  keyGenerator: (c: Context<E>) => string | Promise<string>,
+  message = 'Too many requests. Try again later.',
+): MiddlewareHandler<E> {
+  return rateLimiter<E>({
     windowMs,
     limit,
     standardHeaders: 'draft-6',
     keyGenerator,
     store: new MemoryStore(),
-    handler: (c) => c.json({ error: 'Too many requests. Try again later.' }, 429),
+    handler: (c) => c.json({ error: message }, 429),
   })
 }
 

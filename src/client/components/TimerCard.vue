@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount } from 'vue'
 import { formatElapsed } from '../../shared/format.ts'
+import { isPastTarget, overdueByMs } from '../../shared/overdue.ts'
 import type { TimerView } from '../../shared/types.ts'
 import AppIcon from './AppIcon.vue'
 
@@ -18,9 +19,11 @@ const emit = defineEmits<{ reset: []; menu: [] }>()
 
 const elapsedMs = computed(() => props.now - props.timer.lastReset.at)
 const overdueMs = computed(() =>
-  props.timer.targetMs === null ? 0 : elapsedMs.value - props.timer.targetMs,
+  overdueByMs(props.timer.targetMs, props.timer.lastReset.at, props.now),
 )
-const overdue = computed(() => props.timer.targetMs !== null && overdueMs.value > 0)
+const overdue = computed(() =>
+  isPastTarget(props.timer.targetMs, props.timer.lastReset.at, props.now),
+)
 
 let pressTimer: ReturnType<typeof setTimeout> | undefined
 let longPressed = false

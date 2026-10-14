@@ -1,8 +1,9 @@
-import { and, eq } from 'drizzle-orm'
-import { Hono, type Context } from 'hono'
+import { Hono } from 'hono'
 import type { Db } from '../db/client.ts'
 import { pushSubscriptions } from '../db/schema.ts'
 import { forbidDemo, requireUser, type AuthEnv } from '../auth/middleware.ts'
+import { readJson } from '../http.ts'
+import { removeOwnedSubscription } from './subscriptions.ts'
 
 export interface PushRouteOptions {
   db: Db
@@ -11,17 +12,6 @@ export interface PushRouteOptions {
 }
 
 const MAX_FIELD = 2048
-
-async function readJson(c: Context): Promise<Record<string, unknown>> {
-  try {
-    const body = await c.req.json()
-    return body && typeof body === 'object' && !Array.isArray(body)
-      ? (body as Record<string, unknown>)
-      : {}
-  } catch {
-    return {}
-  }
-}
 
 const text = (value: unknown): string | null =>
   typeof value === 'string' && value.length > 0 && value.length <= MAX_FIELD ? value : null
@@ -57,11 +47,6 @@ export function pushRoutes({ db, vapidPublicKey, now }: PushRouteOptions): Hono<
       })
       .run()
   }
-  const removeOwned = (endpoint: string, userId: number): void => {
-    db.delete(pushSubscriptions)
-      .where(and(eq(pushSubscriptions.endpoint, endpoint), eq(pushSubscriptions.userId, userId)))
-      .run()
-  }
 
   routes.get('/key', (c) =>
     vapidPublicKey
@@ -79,7 +64,7 @@ export function pushRoutes({ db, vapidPublicKey, now }: PushRouteOptions): Hono<
   routes.post('/unsubscribe', async (c) => {
     const endpoint = text((await readJson(c)).endpoint)
     if (!endpoint) return c.json({ error: 'Invalid endpoint' }, 422)
-    removeOwned(endpoint, c.var.user!.id)
+    removeOwnedSubscription(db, endpoint, c.var.user!.id)
     return c.json({ ok: true })
   })
 
@@ -90,7 +75,7 @@ export function pushRoutes({ db, vapidPublicKey, now }: PushRouteOptions): Hono<
     if (!sub || !oldEndpoint) return c.json({ error: 'Invalid subscription' }, 422)
     const userId = c.var.user!.id
     db.transaction(() => {
-      removeOwned(oldEndpoint, userId)
+      removeOwnedSubscription(db, oldEndpoint, userId)
       upsert(sub, userId)
     })
     return c.json({ ok: true }, 201)

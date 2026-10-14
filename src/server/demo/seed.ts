@@ -1,8 +1,6 @@
 import type { Db } from '../db/client.ts'
 import { resets, timers } from '../db/schema.ts'
-
-const HOUR = 60 * 60 * 1000
-const DAY = 24 * HOUR
+import { DAY_MS } from '../../shared/limits.ts'
 
 interface SeedTimer {
   name: string
@@ -30,13 +28,13 @@ const SEED: SeedTimer[] = [
 /** Seeds example timers with resets backdated relative to `now`. Call inside a transaction. */
 export function seedDemoTimers(db: Pick<Db, 'insert'>, userId: number, now: number): void {
   for (const seed of SEED) {
-    const times = seed.agesDays.map((d) => Math.round(now - d * DAY))
+    const times = seed.agesDays.map((d) => Math.round(now - d * DAY_MS))
     const timer = db
       .insert(timers)
       .values({
         userId,
         name: seed.name,
-        targetMs: seed.targetDays === null ? null : seed.targetDays * DAY,
+        targetMs: seed.targetDays === null ? null : seed.targetDays * DAY_MS,
         createdAt: times[0]!,
       })
       .returning()

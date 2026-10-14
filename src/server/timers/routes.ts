@@ -1,10 +1,9 @@
 import { Hono, type Context } from 'hono'
-import { MemoryStore, rateLimiter } from 'hono-rate-limiter'
-import { eq } from 'drizzle-orm'
 import type { Db } from '../db/client.ts'
-import { resets } from '../db/schema.ts'
+import { readJson } from '../http.ts'
 import { requireUser, type AuthEnv } from '../auth/middleware.ts'
-import type { LimitSettings } from '../security/rateLimit.ts'
+import { limiter, type LimitSettings } from '../security/rateLimit.ts'
+import { MINUTE_MS } from '../../shared/limits.ts'
 import {
   MAX_RESETS,
   MAX_TIMERS,
@@ -21,19 +20,6 @@ export interface TimerRouteOptions {
   now: () => number
 }
 
-const MINUTE_MS = 60_000
-
-async function readJson(c: Context): Promise<Record<string, unknown>> {
-  try {
-    const body = await c.req.json()
-    return body && typeof body === 'object' && !Array.isArray(body)
-      ? (body as Record<string, unknown>)
-      : {}
-  } catch {
-    return {}
-  }
-}
-
 function parseId(value: string | undefined): number | null {
   return value !== undefined && /^\d{1,15}$/.test(value) ? Number(value) : null
 }
@@ -46,14 +32,12 @@ export function timerRoutes({ db, limits, now }: TimerRouteOptions): Hono<AuthEn
 
   routes.use('*', requireUser)
   // Per-user write limit (R5). Reads are not counted.
-  const writeLimiter = rateLimiter<AuthEnv>({
-    windowMs: MINUTE_MS,
-    limit: limits.writesPerMinute,
-    standardHeaders: 'draft-6',
-    keyGenerator: (c) => `write:${userId(c)}`,
-    store: new MemoryStore(),
-    handler: (c) => c.json({ error: 'Too many changes. Try again in a minute.' }, 429),
-  })
+  const writeLimiter = limiter<AuthEnv>(
+    MINUTE_MS,
+    limits.writesPerMinute,
+    (c) => `write:${userId(c)}`,
+    'Too many changes. Try again in a minute.',
+  )
   routes.use('*', async (c, next) => (c.req.method === 'GET' ? next() : writeLimiter(c, next)))
 
   /** The timer from `:id`, scoped to the user; other users' timers look missing. */
@@ -99,8 +83,9 @@ export function timerRoutes({ db, limits, now }: TimerRouteOptions): Hono<AuthEn
     }
     if (Object.keys(changes).length === 0) return invalid(c, 'Nothing to change')
     const at = now()
-    const updated = svc.updateTimer(db, timer, changes, at)
-    return c.json(svc.toTimerView(updated, svc.entriesOf(db, updated.id), at))
+    const entries = svc.entriesOf(db, timer.id)
+    const updated = svc.updateTimer(db, timer, changes, at, entries)
+    return c.json(svc.toTimerView(updated, entries, at))
   })
 
   routes.delete('/:id', (c) => {
@@ -144,12 +129,7 @@ export function timerRoutes({ db, limits, now }: TimerRouteOptions): Hono<AuthEn
     if (!('note' in body)) return invalid(c, 'Nothing to change')
     const note = parseNote(body.note)
     if (!note.ok) return invalid(c, note.error)
-    const row = db
-      .update(resets)
-      .set({ note: note.value })
-      .where(eq(resets.id, entry.id))
-      .returning()
-      .get()
+    const row = svc.setNote(db, entry.id, note.value)
     return c.json({ reset: svc.toResetView(row) })
   })
 
@@ -161,7 +141,7 @@ export function timerRoutes({ db, limits, now }: TimerRouteOptions): Hono<AuthEn
     // A late Undo finds nothing to delete, which is fine.
     if (!entry) return c.body(null, 204)
     if (entry.isOrigin) return invalid(c, 'The creation entry cannot be deleted')
-    db.delete(resets).where(eq(resets.id, entry.id)).run()
+    svc.deleteReset(db, entry.id)
     return c.body(null, 204)
   })
 
