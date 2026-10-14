@@ -1,1 +1,142 @@
 @import 'tailwindcss';
+
+/* One neutral palette, one accent. Dark mode follows the system setting. */
+:root {
+  color-scheme: light dark;
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --line: #dfe3e9;
+  --ink: #15181e;
+  --muted: #586070;
+  --accent: #4f46e5;
+  --accent-ink: #ffffff;
+  --accent-soft: #eceafd;
+  --danger: #b42318;
+  --danger-soft: #fdecea;
+  --shadow: 0 1px 2px rgb(16 24 40 / 0.06), 0 1px 3px rgb(16 24 40 / 0.08);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1115;
+    --surface: #181b22;
+    --line: #2b303a;
+    --ink: #eceef2;
+    --muted: #a0a8b6;
+    --accent: #8b93ff;
+    --accent-ink: #0f1115;
+    --accent-soft: #23264a;
+    --danger: #ffb4a9;
+    --danger-soft: #3b1d1a;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+html {
+  background: var(--bg);
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+}
+
+a {
+  color: var(--accent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@layer components {
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0 1rem;
+    border: 1px solid var(--line);
+    border-radius: 0.625rem;
+    background: var(--surface);
+    color: var(--ink);
+    font: inherit;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .btn:hover {
+    border-color: var(--muted);
+  }
+  .btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+  }
+  .btn-primary:hover {
+    border-color: var(--accent);
+    filter: brightness(1.08);
+  }
+  .btn-quiet {
+    border-color: transparent;
+    background: transparent;
+    color: var(--muted);
+  }
+  .btn-quiet:hover {
+    border-color: var(--line);
+    color: var(--ink);
+  }
+  .btn-danger {
+    color: var(--danger);
+  }
+  .field {
+    display: block;
+    width: 100%;
+    min-height: 44px;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: 0.625rem;
+    background: var(--surface);
+    color: var(--ink);
+    font: inherit;
+  }
+  .card {
+    border: 1px solid var(--line);
+    border-radius: 0.875rem;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+  }
+  .notice-error {
+    border-radius: 0.625rem;
+    background: var(--danger-soft);
+    color: var(--danger);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9375rem;
+  }
+}

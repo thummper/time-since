@@ -9,8 +9,9 @@
     "skipLibCheck": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
+    "allowImportingTsExtensions": true,
     "jsx": "preserve",
     "types": ["vite/client"]
   },
-  "include": ["src/client/**/*", "src/shared/**/*", "src/**/*.d.ts"]
+  "include": ["src/client/**/*", "src/shared/**/*", "src/**/*.d.ts", "tests/client/**/*"]
 }

@@ -14,6 +14,11 @@ export default tseslint.config(
     languageOptions: { parserOptions: { parser: tseslint.parser } },
   },
   {
+    // Route views are named after their screens (Login, Settings), as the plan lists them.
+    files: ['src/client/views/**/*.vue'],
+    rules: { 'vue/multi-word-component-names': 'off' },
+  },
+  {
     files: ['src/client/**/*'],
     languageOptions: { globals: globals.browser },
   },
