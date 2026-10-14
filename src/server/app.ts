@@ -7,6 +7,7 @@ import { authMiddleware, type AuthEnv } from './auth/middleware.ts'
 import { authRoutes } from './auth/routes.ts'
 import { demoRoutes, MAX_DEMO_USERS } from './demo/routes.ts'
 import { openDb, type Db } from './db/client.ts'
+import { pushRoutes } from './push/routes.ts'
 import { DEFAULT_LIMITS, type LimitSettings } from './security/rateLimit.ts'
 import { timerRoutes } from './timers/routes.ts'
 
@@ -25,6 +26,8 @@ export interface AppOptions {
   limits?: Partial<LimitSettings>
   /** Server clock in epoch ms. Tests inject a fake one. */
   now?: () => number
+  /** VAPID public key served to clients (KTD11). Push routes answer 503 without it. */
+  vapidPublicKey?: string
   /** Cap on non-demo accounts (R5). */
   maxRealAccounts?: number
   /** Cap on live demo sandboxes (R7). */
@@ -94,6 +97,11 @@ export function createApp(options: AppOptions = {}): Hono<AuthEnv> {
   )
 
   app.route('/api/timers', timerRoutes({ db, limits, now: options.now ?? Date.now }))
+
+  app.route(
+    '/api/push',
+    pushRoutes({ db, vapidPublicKey: options.vapidPublicKey, now: options.now ?? Date.now }),
+  )
 
   app.get('/api/health', (c) => c.json({ ok: true }))
 
