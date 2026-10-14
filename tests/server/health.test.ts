@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -37,5 +37,21 @@ describe('app shell and health', () => {
     expect(res.status).toBe(404)
     expect(res.headers.get('content-type')).toContain('application/json')
     expect(await res.text()).not.toContain('<div id="app">')
+  })
+})
+
+describe('static cache headers', () => {
+  it('serves shell, worker, manifest with no-cache and hashed assets as immutable', async () => {
+    mkdirSync(join(clientDir, 'assets'), { recursive: true })
+    writeFileSync(join(clientDir, 'sw.js'), '//sw')
+    writeFileSync(join(clientDir, 'manifest.webmanifest'), '{}')
+    writeFileSync(join(clientDir, 'assets', 'index-abc123.js'), '//app')
+    const app = createApp({ clientDir })
+    for (const path of ['/', '/timers/1', '/index.html', '/sw.js', '/manifest.webmanifest']) {
+      const res = await app.request(path)
+      expect(res.headers.get('cache-control'), path).toBe('no-cache')
+    }
+    const asset = await app.request('/assets/index-abc123.js')
+    expect(asset.headers.get('cache-control')).toBe('public, max-age=31536000, immutable')
   })
 })

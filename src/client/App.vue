@@ -3,6 +3,7 @@ import { watchEffect } from 'vue'
 import DemoBanner from './components/DemoBanner.vue'
 import AppIcon from './components/AppIcon.vue'
 import ToastHost from './components/ToastHost.vue'
+import UpdatePrompt from './components/UpdatePrompt.vue'
 import { useAuthStore } from './stores/auth.ts'
 import { useTimersStore } from './stores/timers.ts'
 
@@ -36,5 +37,6 @@ watchEffect((onCleanup) => {
       <RouterView />
     </main>
     <ToastHost />
+    <UpdatePrompt />
   </div>
 </template>

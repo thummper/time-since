@@ -36,6 +36,8 @@ export interface AppOptions {
 
 export const MAX_REAL_ACCOUNTS = 1000
 
+const IMMUTABLE = 'public, max-age=31536000, immutable'
+
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -114,11 +116,16 @@ export function createApp(options: AppOptions = {}): Hono<AuthEnv> {
       const file = await readFileIfExists(candidate)
       if (file) {
         const type = MIME[extname(candidate)] ?? 'application/octet-stream'
-        return new Response(new Uint8Array(file), { headers: { 'content-type': type } })
+        // Hashed build output never changes; the worker, manifest, and shell must revalidate.
+        const cache = /^assets[/\\]/.test(relative) ? IMMUTABLE : 'no-cache'
+        return new Response(new Uint8Array(file), {
+          headers: { 'content-type': type, 'cache-control': cache },
+        })
       }
     }
     const shell = await readFileIfExists(join(clientDir, 'index.html'))
     if (!shell) return c.text('Client build not found', 404)
+    c.header('cache-control', 'no-cache')
     return c.html(shell.toString('utf-8'))
   })
 

@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { api, ApiError } from '../api/client.ts'
+import { currentEndpoint, dropBrowserSubscription, resyncSubscription } from '../push/subscribe.ts'
 import { useTimersStore } from './timers.ts'
 import { useToastsStore } from './toasts.ts'
 
@@ -60,12 +61,14 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function login(email: string, password: string): Promise<void> {
     accept(await api.post<UserReply>('/api/auth/login', { email, password }, { anonymous: true }))
+    void resyncSubscription()
   }
 
   async function register(email: string, password: string): Promise<void> {
     accept(
       await api.post<UserReply>('/api/auth/register', { email, password }, { anonymous: true }),
     )
+    void resyncSubscription()
   }
 
   async function startDemo(): Promise<void> {
@@ -73,11 +76,13 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function logout(): Promise<void> {
+    const endpoint = await currentEndpoint()
     try {
-      await api.post('/api/auth/logout', {}, { anonymous: true })
+      await api.post('/api/auth/logout', endpoint ? { endpoint } : {}, { anonymous: true })
     } finally {
       user.value = null
       forgetData()
+      void dropBrowserSubscription()
     }
   }
 
