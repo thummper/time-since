@@ -36,11 +36,15 @@ async function submitDialog(payload: { at: number; note: string | null }): Promi
   if (timer) await reset(timer, payload)
 }
 
-async function addTimer(payload: { name: string; targetMs: number | null }): Promise<void> {
+async function addTimer(payload: {
+  name: string
+  targetMs: number | null
+  startedAt?: number
+}): Promise<void> {
   addBusy.value = true
   addError.value = null
   try {
-    await timers.createTimer(payload.name, payload.targetMs)
+    await timers.createTimer(payload.name, payload.targetMs, payload.startedAt)
     adding.value = false
   } catch (e) {
     addError.value = errorMessage(e)
@@ -116,6 +120,7 @@ function openAdd(): void {
     <ModalFrame v-if="adding" title="Add timer" @close="adding = false">
       <TimerForm
         submit-label="Add timer"
+        with-start
         :busy="addBusy"
         :error="addError"
         @submit="addTimer"

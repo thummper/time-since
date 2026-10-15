@@ -64,6 +64,28 @@ describe('timers', () => {
     expect(log.resets[0]).toMatchObject({ isOrigin: true, at: T0 })
   })
 
+  it('creates a timer that started in the past', async () => {
+    const ctx = setup()
+    const cookie = await ctx.register()
+    const { res, timer } = await createTimer(ctx, cookie, {
+      name: 'Aquarium',
+      targetMs: 7 * DAY,
+      startedAt: T0 - 10 * DAY,
+    })
+    expect(res.status).toBe(201)
+    expect(timer).toMatchObject({ createdAt: T0, overdue: true })
+    expect(timer.lastReset.at).toBe(T0 - 10 * DAY)
+  })
+
+  it('rejects a start time in the future or of the wrong type', async () => {
+    const ctx = setup()
+    const cookie = await ctx.register()
+    for (const startedAt of [T0 + 2 * MINUTE, -1, 'yesterday', 1.5]) {
+      const { res } = await createTimer(ctx, cookie, { name: 'ok', startedAt })
+      expect(res.status, String(startedAt)).toBe(422)
+    }
+  })
+
   it('validates name and target', async () => {
     const ctx = setup()
     const cookie = await ctx.register()

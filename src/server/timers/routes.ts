@@ -10,6 +10,7 @@ import {
   parseName,
   parseNote,
   parseResetAt,
+  parseStartedAt,
   parseTarget,
 } from './validation.ts'
 import * as svc from './service.ts'
@@ -58,11 +59,13 @@ export function timerRoutes({ db, limits, now }: TimerRouteOptions): Hono<AuthEn
     const target =
       body.targetMs === undefined ? { ok: true as const, value: null } : parseTarget(body.targetMs)
     if (!target.ok) return invalid(c, target.error)
+    const at = now()
+    const startedAt = parseStartedAt(body.startedAt, at)
+    if (!startedAt.ok) return invalid(c, startedAt.error)
     if (svc.timerCount(db, userId(c)) >= MAX_TIMERS) {
       return invalid(c, `You can have at most ${MAX_TIMERS} timers`)
     }
-    const at = now()
-    const timer = svc.createTimer(db, userId(c), name.value, target.value, at)
+    const timer = svc.createTimer(db, userId(c), name.value, target.value, at, startedAt.value)
     return c.json(svc.toTimerView(timer, svc.entriesOf(db, timer.id), at), 201)
   })
 

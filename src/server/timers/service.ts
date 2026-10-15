@@ -65,13 +65,14 @@ export const timerCount = (db: Db, userId: number): number =>
 export const resetCount = (db: Db, timerId: number): number =>
   db.select({ n: count() }).from(resets).where(eq(resets.timerId, timerId)).get()!.n
 
-/** Creates the timer and its origin entry in one transaction. */
+/** Creates the timer and its origin entry (at `startedAt`) in one transaction. */
 export function createTimer(
   db: Db,
   userId: number,
   name: string,
   targetMs: number | null,
   now: number,
+  startedAt: number = now,
 ): Timer {
   return db.transaction((tx) => {
     const timer = tx
@@ -79,7 +80,9 @@ export function createTimer(
       .values({ userId, name, targetMs, createdAt: now })
       .returning()
       .get()
-    tx.insert(resets).values({ timerId: timer.id, at: now, isOrigin: true, createdAt: now }).run()
+    tx.insert(resets)
+      .values({ timerId: timer.id, at: startedAt, isOrigin: true, createdAt: now })
+      .run()
     return timer
   })
 }

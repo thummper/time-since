@@ -43,4 +43,27 @@ describe('TimerForm', () => {
     expect((wrapper.find('input[name="amount"]').element as HTMLInputElement).value).toBe('14')
     expect((wrapper.find('select[name="unit"]').element as HTMLSelectElement).value).toBe('days')
   })
+
+  it('sends a past start time when the start field is shown', async () => {
+    const wrapper = mount(TimerForm, { props: { withStart: true } })
+    await wrapper.find('input[name="name"]').setValue('Aquarium')
+    await wrapper.find('input[name="started"]').setValue('2020-01-02T03:04')
+    await wrapper.find('form').trigger('submit')
+    expect(wrapper.emitted('submit')![0]).toEqual([
+      { name: 'Aquarium', targetMs: null, startedAt: new Date('2020-01-02T03:04').getTime() },
+    ])
+  })
+
+  it('rejects a start time in the future', async () => {
+    const wrapper = mount(TimerForm, { props: { withStart: true } })
+    await wrapper.find('input[name="name"]').setValue('Aquarium')
+    await wrapper.find('input[name="started"]').setValue('2999-01-01T00:00')
+    await wrapper.find('form').trigger('submit')
+    expect(wrapper.emitted('submit')).toBeUndefined()
+    expect(wrapper.find('[role="alert"]').text()).toContain('future')
+  })
+
+  it('hides the start field by default', () => {
+    expect(mount(TimerForm).find('input[name="started"]').exists()).toBe(false)
+  })
 })

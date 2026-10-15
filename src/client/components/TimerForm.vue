@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { toLocalInput } from '../../shared/format.ts'
 import { DAY_MS, HOUR_MS, NAME_MAX, TARGET_MAX_MS, TARGET_MIN_MS } from '../../shared/limits.ts'
 
 type Unit = 'days' | 'hours'
@@ -10,11 +11,19 @@ const props = withDefaults(
     submitLabel?: string
     busy?: boolean
     error?: string | null
+    /** Shows a "started" field so a new timer can begin in the past. */
+    withStart?: boolean
   }>(),
-  { initial: () => ({ name: '', targetMs: null }), submitLabel: 'Save', busy: false, error: null },
+  {
+    initial: () => ({ name: '', targetMs: null }),
+    submitLabel: 'Save',
+    busy: false,
+    error: null,
+    withStart: false,
+  },
 )
 const emit = defineEmits<{
-  submit: [payload: { name: string; targetMs: number | null }]
+  submit: [payload: { name: string; targetMs: number | null; startedAt?: number }]
   cancel: []
 }>()
 
@@ -28,6 +37,8 @@ const start = startingTarget(props.initial.targetMs)
 const name = ref(props.initial.name)
 const amount = ref(start.amount)
 const unit = ref<Unit>(start.unit)
+const maxStart = toLocalInput(Date.now())
+const started = ref(maxStart)
 const problem = ref<string | null>(null)
 
 function submit(): void {
@@ -45,8 +56,22 @@ function submit(): void {
       return
     }
   }
+  if (!props.withStart) {
+    problem.value = null
+    emit('submit', { name: trimmed, targetMs })
+    return
+  }
+  const startedAt = new Date(started.value).getTime()
+  if (!started.value || Number.isNaN(startedAt)) {
+    problem.value = 'Pick a start date and time.'
+    return
+  }
+  if (startedAt > Date.now()) {
+    problem.value = 'The start time cannot be in the future.'
+    return
+  }
   problem.value = null
-  emit('submit', { name: trimmed, targetMs })
+  emit('submit', { name: trimmed, targetMs, startedAt })
 }
 </script>
 
@@ -61,6 +86,17 @@ function submit(): void {
         :maxlength="NAME_MAX"
         autocomplete="off"
         placeholder="Clean the aquarium"
+        class="field"
+      />
+    </label>
+    <label v-if="withStart" class="block">
+      <span class="mb-1 block text-sm font-medium">Last done</span>
+      <input
+        v-model="started"
+        name="started"
+        type="datetime-local"
+        :max="maxStart"
+        required
         class="field"
       />
     </label>

@@ -39,10 +39,16 @@ export function parseNote(value: unknown): Parsed<string | null> {
 }
 
 /** `undefined` means "now". A time after now plus 60 seconds is rejected. */
-export function parseResetAt(value: unknown, now: number): Parsed<number> {
+function parsePastTime(value: unknown, now: number, label: string): Parsed<number> {
   if (value === undefined || value === null) return ok(now)
   if (typeof value !== 'number' || !Number.isInteger(value) || value < 0)
-    return fail('Reset time is not valid')
-  if (value > now + FUTURE_TOLERANCE_MS) return fail('Reset time cannot be in the future')
+    return fail(`${label} is not valid`)
+  if (value > now + FUTURE_TOLERANCE_MS) return fail(`${label} cannot be in the future`)
   return ok(value)
 }
+
+export const parseResetAt = (value: unknown, now: number) => parsePastTime(value, now, 'Reset time')
+
+/** When a new timer's origin entry happened. */
+export const parseStartedAt = (value: unknown, now: number) =>
+  parsePastTime(value, now, 'Start time')

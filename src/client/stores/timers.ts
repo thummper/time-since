@@ -165,8 +165,12 @@ export const useTimersStore = defineStore('timers', () => {
     })
   }
 
-  async function createTimer(name: string, targetMs: number | null): Promise<TimerView> {
-    const timer = await api.post<TimerView>('/api/timers', { name, targetMs })
+  async function createTimer(
+    name: string,
+    targetMs: number | null,
+    startedAt?: number,
+  ): Promise<TimerView> {
+    const timer = await api.post<TimerView>('/api/timers', { name, targetMs, startedAt })
     timers.value = [...timers.value, timer]
     return timer
   }

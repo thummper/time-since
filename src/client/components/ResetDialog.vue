@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { toLocalInput } from '../../shared/format.ts'
 import { NOTE_MAX } from '../../shared/limits.ts'
 import ModalFrame from './ModalFrame.vue'
 
@@ -8,14 +9,6 @@ const emit = defineEmits<{
   submit: [payload: { at: number; note: string | null }]
   cancel: []
 }>()
-
-const pad = (n: number) => String(n).padStart(2, '0')
-
-/** The `datetime-local` value (local time, minute precision) for an instant. */
-function toLocalInput(ms: number): string {
-  const d = new Date(ms)
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
-}
 
 const max = toLocalInput(Date.now())
 const when = ref(max)
