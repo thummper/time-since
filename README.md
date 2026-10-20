@@ -85,3 +85,7 @@ To restore:
      "cp /data/backups/time-since-YYYYMMDD-HHMMSS.db /data/time-since.db && rm -f /data/time-since.db-wal /data/time-since.db-shm && chown 1000:1000 /data/time-since.db"
    ```
 3. Start the `app` container and check `/api/health`.
+
+## License
+
+[PolyForm Noncommercial 1.0.0](LICENSE). You can use, change, and share this code for any noncommercial purpose. Commercial use is not allowed.

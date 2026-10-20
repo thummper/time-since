@@ -4,3 +4,10 @@ dist
 *.db
 test-results
 playwright-report
+
+# Local data and tool state
+data/
+*.db-shm
+*.db-wal
+.vitest/
+.claude/
