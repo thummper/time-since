@@ -4,6 +4,9 @@ services:
   app:
     build: .
     image: time-since:local
+    # The image only exists locally. "build" stops Compose (and Portainer's re-pull) from asking
+    # Docker Hub for it, and rebuilds from the pulled source on every deploy.
+    pull_policy: build
     restart: unless-stopped
     # Port 3000 is reachable only on the stack network (cloudflared uses http://app:3000).
     # For LAN testing, uncomment:
