@@ -65,3 +65,20 @@ export function installFetch(routes: Route[]) {
       calls.filter((c) => c.method === method && pattern.test(c.path)).length,
   }
 }
+
+interface Clickable {
+  find(selector: string): {
+    trigger(event: string): Promise<unknown>
+    findAll(selector: string): { text(): string; trigger(event: string): Promise<unknown> }[]
+  }
+}
+
+/** Taps a card's reset button, then confirms the reset in the dialog. */
+export async function tapReset(wrapper: Clickable, name: string): Promise<void> {
+  await wrapper.find(`button[aria-label="Reset ${name}"]`).trigger('click')
+  await wrapper
+    .find('[role="dialog"]')
+    .findAll('button')
+    .find((b) => b.text() === 'Reset')!
+    .trigger('click')
+}

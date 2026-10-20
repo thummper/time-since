@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatElapsed } from '../../src/shared/format.ts'
+import { elapsedParts, formatElapsed } from '../../src/shared/format.ts'
 
 const MIN = 60 * 1000
 const HOUR = 60 * MIN
@@ -20,5 +20,22 @@ describe('formatElapsed', () => {
   })
   it('clamps negative input to zero', () => {
     expect(formatElapsed(-5 * MIN)).toBe('0h 0m')
+  })
+})
+
+const flat = (ms: number) =>
+  elapsedParts(ms)
+    .map((p) => p.value + p.unit)
+    .join(' ')
+
+describe('elapsedParts', () => {
+  it('shows padded hours, minutes and seconds below one day', () => {
+    expect(flat(3 * HOUR + 4 * MIN + 5000)).toBe('03h 04m 05s')
+  })
+  it('adds an unpadded day group from one day up', () => {
+    expect(flat(142 * DAY + 9 * HOUR + 59_999)).toBe('142d 09h 00m 59s')
+  })
+  it('clamps negative input to zero', () => {
+    expect(flat(-5 * MIN)).toBe('00h 00m 00s')
   })
 })

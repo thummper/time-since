@@ -6,6 +6,7 @@ import { NOTE_MAX } from '../../shared/limits.ts'
 import { isPastTarget, overdueByMs } from '../../shared/overdue.ts'
 import { errorMessage } from '../api/client.ts'
 import AppIcon from '../components/AppIcon.vue'
+import ConfirmDialog from '../components/ConfirmDialog.vue'
 import ModalFrame from '../components/ModalFrame.vue'
 import StatsPanel from '../components/StatsPanel.vue'
 import TimerForm from '../components/TimerForm.vue'
@@ -132,11 +133,15 @@ async function saveNote(entryId: number): Promise<void> {
   }
 }
 
-async function removeEntry(entryId: number): Promise<void> {
+const confirmEntry = computed(() => log.value.find((e) => e.id === confirmEntryId.value) ?? null)
+
+async function removeEntry(): Promise<void> {
+  const entryId = confirmEntryId.value
+  confirmEntryId.value = null
+  if (entryId === null) return
   entryError.value = null
   try {
     await timers.deleteEntry(id.value, entryId)
-    confirmEntryId.value = null
   } catch (e) {
     entryError.value = errorMessage(e)
   }
@@ -241,23 +246,20 @@ async function removeEntry(entryId: number): Promise<void> {
                 <button type="submit" class="btn btn-primary">Save note</button>
               </div>
             </form>
-            <div
-              v-if="confirmEntryId === entry.id"
-              class="flex flex-wrap items-center justify-between gap-2"
-            >
-              <p class="text-sm">Delete this entry?</p>
-              <div class="flex gap-2">
-                <button type="button" class="btn btn-quiet" @click="confirmEntryId = null">
-                  Keep
-                </button>
-                <button type="button" class="btn btn-danger" @click="removeEntry(entry.id)">
-                  Delete entry
-                </button>
-              </div>
-            </div>
           </li>
         </ul>
       </div>
+
+      <ConfirmDialog
+        v-if="confirmEntry"
+        title="Delete this entry?"
+        confirm-label="Delete entry"
+        danger
+        @confirm="removeEntry"
+        @cancel="confirmEntryId = null"
+      >
+        <p>The reset from {{ formatWhen(confirmEntry.at) }} will be removed from the log.</p>
+      </ConfirmDialog>
 
       <ModalFrame v-if="editing" title="Edit timer" @close="editing = false">
         <TimerForm

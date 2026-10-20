@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount } from 'vue'
-import { formatElapsed } from '../../shared/format.ts'
+import { elapsedParts, formatElapsed } from '../../shared/format.ts'
 import { isPastTarget, overdueByMs } from '../../shared/overdue.ts'
 import type { TimerView } from '../../shared/types.ts'
 import AppIcon from './AppIcon.vue'
 
 const LONG_PRESS_MS = 500
+const TONES = 5
 
 const props = defineProps<{
   timer: TimerView
@@ -17,7 +18,7 @@ const props = defineProps<{
   busy?: boolean
   error?: string | null
 }>()
-const emit = defineEmits<{ reset: []; menu: [] }>()
+const emit = defineEmits<{ reset: []; retry: []; menu: [] }>()
 
 const elapsedMs = computed(() => props.now - props.timer.lastReset.at)
 const overdueMs = computed(() =>
@@ -25,6 +26,18 @@ const overdueMs = computed(() =>
 )
 const overdue = computed(() =>
   isPastTarget(props.timer.targetMs, props.timer.lastReset.at, props.now),
+)
+const parts = computed(() => elapsedParts(elapsedMs.value))
+/** Each timer keeps one pastel tone, picked from its id. */
+const tone = computed(() => `tone-${props.timer.id % TONES}`)
+const monogram = computed(() => props.timer.name.trim().charAt(0).toUpperCase() || '?')
+const progress = computed(() => {
+  const target = props.timer.targetMs
+  if (target === null || target <= 0) return 0
+  return Math.min(100, Math.max(0, (elapsedMs.value / target) * 100))
+})
+const dueInMs = computed(() =>
+  props.timer.targetMs === null ? 0 : props.timer.targetMs - elapsedMs.value,
 )
 
 let pressTimer: ReturnType<typeof setTimeout> | undefined
@@ -58,45 +71,58 @@ onBeforeUnmount(() => clearTimeout(pressTimer))
 
 <template>
   <article
-    class="card overflow-hidden"
-    :class="overdue ? 'border-danger bg-danger-soft' : ''"
+    class="tone overflow-hidden rounded-[1.375rem]"
+    :class="[tone, overdue ? 'shadow-[inset_0_0_0_2px_var(--tone-ink)]' : '']"
     :data-overdue="overdue ? 'true' : undefined"
   >
-    <div class="flex items-center gap-2 p-4">
-      <div class="min-w-0 flex-1">
+    <div class="space-y-2.5 py-3.5 pr-3.5 pl-4">
+      <div class="flex items-center gap-2">
+        <span
+          aria-hidden="true"
+          class="flex size-8 shrink-0 items-center justify-center rounded-[0.625rem] bg-[var(--tone-glass)] text-sm font-bold"
+        >
+          {{ monogram }}
+        </span>
         <RouterLink
           :to="`/timers/${timer.id}`"
-          class="block truncate text-base font-semibold text-ink no-underline hover:underline"
+          class="min-w-0 flex-1 truncate text-base font-semibold text-[var(--tone-ink)] no-underline hover:underline"
         >
           {{ timer.name }}
         </RouterLink>
-        <p
-          class="text-3xl font-bold tabular-nums leading-tight"
-          :class="overdue ? 'text-danger' : ''"
+        <span
+          v-if="held"
+          data-testid="reset-state"
+          class="shrink-0 rounded-full bg-[var(--tone-glass)] px-2.5 py-0.5 text-xs font-semibold"
+          >Reset</span
         >
-          {{ formatElapsed(elapsedMs) }}
-        </p>
-        <p v-if="overdue" class="flex items-center gap-1 text-sm font-semibold text-danger">
-          <AppIcon name="alert" />
-          <span>Overdue by {{ formatElapsed(overdueMs) }}</span>
-        </p>
-        <p v-if="timer.targetMs !== null" class="text-sm text-muted">
-          Target {{ formatElapsed(timer.targetMs) }}
-        </p>
-        <p v-if="held" data-testid="reset-state" class="text-sm font-semibold text-accent">Reset</p>
-      </div>
-      <div class="flex shrink-0 items-center gap-1">
         <button
           type="button"
-          class="btn btn-quiet"
+          class="btn btn-quiet -my-2 -mr-2 shrink-0 text-[var(--tone-ink)] hover:border-transparent hover:bg-[var(--tone-glass)] hover:text-[var(--tone-ink)]"
           :aria-label="`More options for ${timer.name}`"
           @click="emit('menu')"
         >
           <AppIcon name="dots" />
         </button>
+      </div>
+
+      <div class="flex items-center gap-2.5">
+        <p class="m-0 flex min-w-0 flex-1 flex-wrap gap-1">
+          <span class="sr-only">{{ formatElapsed(elapsedMs) }}</span>
+          <span
+            v-for="part in parts"
+            :key="part.unit"
+            aria-hidden="true"
+            class="flex items-baseline gap-px rounded-[0.5625rem] bg-[var(--tone-glass)] px-[7px] pt-1.5 pb-[5px] font-mono"
+          >
+            <span class="text-[1.3125rem] leading-none font-bold tabular-nums">{{
+              part.value
+            }}</span>
+            <span class="text-[0.6875rem] opacity-60">{{ part.unit }}</span>
+          </span>
+        </p>
         <button
           type="button"
-          class="btn btn-primary min-h-[48px] min-w-[48px]"
+          class="flex size-[52px] shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-[var(--tone-ink)] text-[var(--tone-bg)] transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-55"
           :aria-label="`Reset ${timer.name}`"
           :aria-busy="busy ? 'true' : undefined"
           :disabled="busy"
@@ -108,9 +134,29 @@ onBeforeUnmount(() => clearTimeout(pressTimer))
           @click="onClick"
         >
           <AppIcon name="reset" />
-          <span>Reset</span>
         </button>
       </div>
+
+      <div v-if="timer.targetMs !== null" class="flex items-center gap-2 text-xs font-medium">
+        <div
+          class="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--tone-track)]"
+          role="progressbar"
+          aria-label="Progress to target"
+          :aria-valuenow="Math.round(progress)"
+          aria-valuemin="0"
+          aria-valuemax="100"
+        >
+          <div
+            class="h-full rounded-full bg-[var(--tone-ink)]"
+            :style="{ width: `${progress}%` }"
+          />
+        </div>
+        <span v-if="overdue" class="font-semibold">Overdue by {{ formatElapsed(overdueMs) }}</span>
+        <span v-else class="opacity-80" :title="`Target ${formatElapsed(timer.targetMs)}`"
+          >Due in {{ formatElapsed(dueInMs) }}</span
+        >
+      </div>
+
     </div>
     <div
       v-if="error"
@@ -122,7 +168,7 @@ onBeforeUnmount(() => clearTimeout(pressTimer))
         type="button"
         class="btn btn-quiet min-h-[44px] underline"
         :disabled="busy"
-        @click="emit('reset')"
+        @click="emit('retry')"
       >
         Retry
       </button>

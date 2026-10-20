@@ -108,6 +108,28 @@ describe('TimerDetail', () => {
     expect(wrapper.findAll('[data-testid="log-entry"]')[1]!.text()).toContain('Changed the filter')
   })
 
+  it('asks for confirmation in a dialog before deleting a log entry', async () => {
+    const { calls } = installFetch([
+      meRoute(REAL_USER),
+      listRoute(timer),
+      resetsRoute,
+      ['DELETE', /^\/api\/timers\/1\/resets\/11$/, () => [204]],
+    ])
+    const { wrapper } = await mountApp('/timers/1')
+    const row = wrapper.findAll('[data-testid="log-entry"]')[1]!
+    await row.find('button[aria-label^="Delete entry"]').trigger('click')
+    const dialog = wrapper.find('[role="dialog"]')
+    expect(dialog.text()).toContain('Delete this entry?')
+    expect(calls.some((c) => c.method === 'DELETE')).toBe(false)
+    await dialog
+      .findAll('button')
+      .find((b) => b.text() === 'Delete entry')!
+      .trigger('click')
+    await flushPromises()
+    expect(calls.some((c) => c.method === 'DELETE')).toBe(true)
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+  })
+
   it('asks for confirmation showing the reset count before deleting the timer', async () => {
     const { calls } = installFetch([
       meRoute(REAL_USER),

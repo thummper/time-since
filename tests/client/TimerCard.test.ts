@@ -26,9 +26,9 @@ describe('TimerCard', () => {
     expect(wrapper.find('[data-overdue="true"]').exists()).toBe(true)
   })
 
-  it('shows the target when set', () => {
+  it('shows the time left to the target when set', () => {
     const timer = timerView({ id: 1, targetMs: 14 * DAY })
-    expect(mountCard({ timer, now: T0 }).text()).toContain('Target 14d 0h')
+    expect(mountCard({ timer, now: T0 }).text()).toContain('Due in 13d 0h')
   })
 
   it('shows a Reset state while held', () => {
@@ -56,10 +56,23 @@ describe('TimerCard', () => {
     expect(wrapper.emitted('reset')).toBeUndefined()
   })
 
-  it('emits reset on click and menu on the menu button', async () => {
-    const wrapper = mountCard({ timer: timerView({ id: 1, name: 'Aquarium' }), now: T0 })
+  it('emits reset on click and retry from the error notice', async () => {
+    const wrapper = mountCard({
+      timer: timerView({ id: 1, name: 'Aquarium' }),
+      now: T0,
+      error: 'Something went wrong',
+    })
     await wrapper.find('button[aria-label="Reset Aquarium"]').trigger('click')
     expect(wrapper.emitted('reset')).toHaveLength(1)
+    await wrapper
+      .findAll('button')
+      .find((b) => b.text() === 'Retry')!
+      .trigger('click')
+    expect(wrapper.emitted('retry')).toHaveLength(1)
+  })
+
+  it('emits menu on the menu button', async () => {
+    const wrapper = mountCard({ timer: timerView({ id: 1, name: 'Aquarium' }), now: T0 })
     await wrapper.find('button[aria-label="More options for Aquarium"]').trigger('click')
     expect(wrapper.emitted('menu')).toHaveLength(1)
   })

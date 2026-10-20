@@ -1,35 +1,95 @@
 @import 'tailwindcss';
 
-/* One neutral palette, one accent. Dark mode follows the system setting. */
+/* Soft lavender ground, deep ink, and five pastel tones that tint the timer cards. */
 :root {
   color-scheme: light dark;
-  --bg: #f5f6f8;
+  --bg: #f3f1fa;
   --surface: #ffffff;
-  --line: #dfe3e9;
-  --ink: #15181e;
-  --muted: #586070;
-  --accent: #4f46e5;
+  --line: #e1ddef;
+  --ink: #1b2330;
+  --muted: #5d6577;
+  --accent: #1b2330;
   --accent-ink: #ffffff;
-  --accent-soft: #eceafd;
+  --accent-soft: #e2d8ff;
   --danger: #b42318;
   --danger-soft: #fdecea;
-  --shadow: 0 1px 2px rgb(16 24 40 / 0.06), 0 1px 3px rgb(16 24 40 / 0.08);
+  --shadow: 0 2px 8px rgb(40 30 90 / 0.08);
+  --shadow-lift: 0 8px 20px rgb(27 35 48 / 0.25);
+  --tone-glass: rgb(255 255 255 / 0.68);
+  --tone-track: rgb(255 255 255 / 0.6);
+  --tone-0-bg: #ffc9b8;
+  --tone-0-ink: #5a1d0c;
+  --tone-1-bg: #bfe3ff;
+  --tone-1-ink: #0d3555;
+  --tone-2-bg: #c9f0cf;
+  --tone-2-ink: #14451d;
+  --tone-3-bg: #ffe8a3;
+  --tone-3-ink: #4f3b00;
+  --tone-4-bg: #e2d8ff;
+  --tone-4-ink: #2e1f66;
 }
 
+/* Dark tokens: the system setting applies unless the user picked Light in
+   Settings, and Dark in Settings applies whatever the system says. */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0f1115;
-    --surface: #181b22;
-    --line: #2b303a;
-    --ink: #eceef2;
-    --muted: #a0a8b6;
-    --accent: #8b93ff;
-    --accent-ink: #0f1115;
-    --accent-soft: #23264a;
+  :root:not([data-theme='light']) {
+    --bg: #121320;
+    --surface: #1c1d2c;
+    --line: #2d2f42;
+    --ink: #eceaf6;
+    --muted: #a3a6bb;
+    --accent: #e2d8ff;
+    --accent-ink: #1b2330;
+    --accent-soft: #2e2a4d;
     --danger: #ffb4a9;
     --danger-soft: #3b1d1a;
     --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-lift: 0 8px 20px rgb(0 0 0 / 0.45);
+    --tone-glass: rgb(255 255 255 / 0.1);
+    --tone-track: rgb(255 255 255 / 0.14);
+    --tone-0-bg: #4a2219;
+    --tone-0-ink: #ffd3c4;
+    --tone-1-bg: #16324a;
+    --tone-1-ink: #c9e7ff;
+    --tone-2-bg: #193a20;
+    --tone-2-ink: #ccf2d2;
+    --tone-3-bg: #3d3110;
+    --tone-3-ink: #ffe9a8;
+    --tone-4-bg: #2c2452;
+    --tone-4-ink: #e4dbff;
   }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #121320;
+  --surface: #1c1d2c;
+  --line: #2d2f42;
+  --ink: #eceaf6;
+  --muted: #a3a6bb;
+  --accent: #e2d8ff;
+  --accent-ink: #1b2330;
+  --accent-soft: #2e2a4d;
+  --danger: #ffb4a9;
+  --danger-soft: #3b1d1a;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-lift: 0 8px 20px rgb(0 0 0 / 0.45);
+  --tone-glass: rgb(255 255 255 / 0.1);
+  --tone-track: rgb(255 255 255 / 0.14);
+  --tone-0-bg: #4a2219;
+  --tone-0-ink: #ffd3c4;
+  --tone-1-bg: #16324a;
+  --tone-1-ink: #c9e7ff;
+  --tone-2-bg: #193a20;
+  --tone-2-ink: #ccf2d2;
+  --tone-3-bg: #3d3110;
+  --tone-3-ink: #ffe9a8;
+  --tone-4-bg: #2c2452;
+  --tone-4-ink: #e4dbff;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
 }
 
 @theme inline {
@@ -43,7 +103,8 @@
   --color-accent-soft: var(--accent-soft);
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
-  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: 'Outfit Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'Cascadia Mono', Consolas, monospace;
 }
 
 html {
@@ -79,7 +140,7 @@ a {
     min-width: 44px;
     padding: 0 1rem;
     border: 1px solid var(--line);
-    border-radius: 0.625rem;
+    border-radius: 0.875rem;
     background: var(--surface);
     color: var(--ink);
     font: inherit;
@@ -128,9 +189,38 @@ a {
   }
   .card {
     border: 1px solid var(--line);
-    border-radius: 0.875rem;
+    border-radius: 1.375rem;
     background: var(--surface);
     box-shadow: var(--shadow);
+  }
+  .btn-pill {
+    min-height: 54px;
+    padding: 0 1.75rem;
+    border-radius: 999px;
+    box-shadow: var(--shadow-lift);
+  }
+  /* A timer card tinted with one of the five tones. */
+  .tone {
+    --tone-bg: var(--tone-4-bg);
+    --tone-ink: var(--tone-4-ink);
+    background: var(--tone-bg);
+    color: var(--tone-ink);
+  }
+  .tone-0 {
+    --tone-bg: var(--tone-0-bg);
+    --tone-ink: var(--tone-0-ink);
+  }
+  .tone-1 {
+    --tone-bg: var(--tone-1-bg);
+    --tone-ink: var(--tone-1-ink);
+  }
+  .tone-2 {
+    --tone-bg: var(--tone-2-bg);
+    --tone-ink: var(--tone-2-ink);
+  }
+  .tone-3 {
+    --tone-bg: var(--tone-3-bg);
+    --tone-ink: var(--tone-3-ink);
   }
   .notice-error {
     border-radius: 0.625rem;

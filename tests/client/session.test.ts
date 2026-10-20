@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useAuthStore } from '../../src/client/stores/auth.ts'
 import { useTimersStore } from '../../src/client/stores/timers.ts'
 import { useToastsStore } from '../../src/client/stores/toasts.ts'
-import { DAY, installFetch, listRoute, resetView, timerView, T0 } from './helpers.ts'
+import { DAY, installFetch, listRoute, resetView, tapReset, timerView, T0 } from './helpers.ts'
 import { DEMO_USER, meRoute, mountApp, REAL_USER } from './mountApp.ts'
 
 afterEach(() => {
@@ -149,7 +149,7 @@ describe('session handling', () => {
         ],
       ])
       const { wrapper } = await mountApp('/')
-      await wrapper.find('button[aria-label="Reset Ada timer"]').trigger('click')
+      await tapReset(wrapper, 'Ada timer')
       await flushPromises()
       const timers = useTimersStore()
       const toasts = useToastsStore()

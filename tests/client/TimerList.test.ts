@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { flushPromises } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { DAY, T0, installFetch, listRoute, resetView, timerView } from './helpers.ts'
+import { DAY, T0, installFetch, listRoute, resetView, tapReset, timerView } from './helpers.ts'
 import { meRoute, mountApp, REAL_USER } from './mountApp.ts'
 
 beforeEach(() => {
@@ -78,12 +78,17 @@ describe('TimerList', () => {
     ])
     const { wrapper } = await mountApp('/')
     expect(wrapper.find('article').text()).toContain('3d 0h')
-    await wrapper.find('button[aria-label="Reset Aquarium"]').trigger('click')
+    await tapReset(wrapper, 'Aquarium')
     await flushPromises()
     const card = wrapper.find('article')
     expect(card.find('[role="alert"]').text()).toContain('Something went wrong')
     expect(card.text()).toContain('3d 0h')
     expect(card.text()).toContain('Retry')
+    await card
+      .findAll('button')
+      .find((b) => b.text() === 'Retry')!
+      .trigger('click')
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
   })
 
   it('keeps a card in place after a reset until its undo toast closes, then re-sorts', async () => {
@@ -115,7 +120,7 @@ describe('TimerList', () => {
     ])
     const { wrapper } = await mountApp('/')
     expect(cardNames(wrapper)).toEqual(['Old', 'Newer'])
-    await wrapper.find('button[aria-label="Reset Old"]').trigger('click')
+    await tapReset(wrapper, 'Old')
     await flushPromises()
     expect(cardNames(wrapper)).toEqual(['Old', 'Newer'])
     expect(wrapper.find('[data-testid="reset-state"]').exists()).toBe(true)
@@ -143,8 +148,9 @@ describe('TimerList', () => {
     ])
     const { wrapper } = await mountApp('/')
     const button = wrapper.find('button[aria-label="Reset A"]')
+    await tapReset(wrapper, 'A')
     await button.trigger('click')
-    await button.trigger('click')
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
     expect(button.attributes('aria-busy')).toBe('true')
     expect(count('POST', /\/resets$/)).toBe(1)
     release()
@@ -165,11 +171,28 @@ describe('TimerList', () => {
       ],
     ])
     const { wrapper } = await mountApp('/')
-    await wrapper.find('button[aria-label="Reset A"]').trigger('click')
+    await tapReset(wrapper, 'A')
     await flushPromises()
-    await wrapper.find('button[aria-label="Reset B"]').trigger('click')
+    await tapReset(wrapper, 'B')
     await flushPromises()
     expect(wrapper.findAll('[role="status"]')).toHaveLength(2)
+  })
+
+  it('asks for confirmation in a dialog before it logs a reset', async () => {
+    const { calls } = installFetch([
+      meRoute(REAL_USER),
+      listRoute(timerView({ id: 1, name: 'Aquarium' })),
+    ])
+    const { wrapper } = await mountApp('/')
+    await wrapper.find('button[aria-label="Reset Aquarium"]').trigger('click')
+    const dialog = wrapper.find('[role="dialog"]')
+    expect(dialog.text()).toContain('Reset Aquarium?')
+    await dialog
+      .findAll('button')
+      .find((b) => b.text() === 'Cancel')!
+      .trigger('click')
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+    expect(calls.some((c) => c.method === 'POST')).toBe(false)
   })
 
   it('opens the reset dialog from the menu button and logs a backdated reset with a note', async () => {

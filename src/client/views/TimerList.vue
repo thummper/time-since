@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { isPastTarget } from '../../shared/overdue.ts'
 import { errorMessage } from '../api/client.ts'
 import AppIcon from '../components/AppIcon.vue'
+import ConfirmDialog from '../components/ConfirmDialog.vue'
 import ModalFrame from '../components/ModalFrame.vue'
 import ResetDialog from '../components/ResetDialog.vue'
 import TimerCard from '../components/TimerCard.vue'
@@ -17,6 +19,17 @@ const adding = ref(false)
 const addBusy = ref(false)
 const addError = ref<string | null>(null)
 const dialogTimer = ref<TimerView | null>(null)
+/** The timer whose reset waits for confirmation. */
+const confirmTimer = ref<TimerView | null>(null)
+
+const summary = computed(() => {
+  const count = timers.timers.length
+  const overdue = timers.timers.filter((t) =>
+    isPastTarget(t.targetMs, t.lastReset.at, timers.now),
+  ).length
+  const label = `${count} ${count === 1 ? 'timer' : 'timers'}`
+  return overdue > 0 ? `${label} · ${overdue} overdue` : label
+})
 
 onMounted(() => {
   void timers.fetchTimers({ silent: timers.status === 'ready' })
@@ -28,6 +41,12 @@ async function reset(timer: TimerView, input: { at?: number; note?: string | nul
     toasts.pushUndo({ timerId: timer.id, resetId: done.id, message: `${timer.name} reset` })
   }
   return done
+}
+
+async function confirmReset(): Promise<void> {
+  const timer = confirmTimer.value
+  confirmTimer.value = null
+  if (timer) await reset(timer)
 }
 
 async function submitDialog(payload: { at: number; note: string | null }): Promise<void> {
@@ -61,12 +80,11 @@ function openAdd(): void {
 
 <template>
   <section class="space-y-4">
-    <div class="flex items-center justify-between gap-3">
-      <h1 class="text-2xl font-bold">Your timers</h1>
-      <button type="button" class="btn btn-primary" @click="openAdd">
-        <AppIcon name="plus" />
-        <span>Add timer</span>
-      </button>
+    <div>
+      <p v-if="timers.status === 'ready' && timers.timers.length > 0" class="text-sm text-muted">
+        {{ summary }}
+      </p>
+      <h1 class="text-[1.75rem] leading-tight font-bold tracking-tight">Your timers</h1>
     </div>
 
     <p
@@ -102,7 +120,7 @@ function openAdd(): void {
         </button>
       </div>
 
-      <ul v-else class="space-y-3">
+      <ul v-else class="space-y-2.5">
         <li v-for="timer in timers.sorted" :key="timer.id">
           <TimerCard
             :timer="timer"
@@ -110,12 +128,23 @@ function openAdd(): void {
             :held="timers.isHeld(timer.id)"
             :busy="timers.isResetting(timer.id)"
             :error="timers.rowErrors[timer.id]"
-            @reset="reset(timer)"
+            @reset="confirmTimer = timer"
+            @retry="reset(timer)"
             @menu="dialogTimer = timer"
           />
         </li>
       </ul>
     </template>
+
+    <div
+      v-if="timers.status === 'ready' && timers.timers.length > 0"
+      class="pointer-events-none fixed inset-x-0 bottom-0 flex justify-center pb-[max(1.5rem,env(safe-area-inset-bottom))]"
+    >
+      <button type="button" class="btn btn-primary btn-pill pointer-events-auto" @click="openAdd">
+        <AppIcon name="plus" />
+        <span>Add timer</span>
+      </button>
+    </div>
 
     <ModalFrame v-if="adding" title="Add timer" @close="adding = false">
       <TimerForm
@@ -127,6 +156,16 @@ function openAdd(): void {
         @cancel="adding = false"
       />
     </ModalFrame>
+
+    <ConfirmDialog
+      v-if="confirmTimer"
+      :title="`Reset ${confirmTimer.name}?`"
+      confirm-label="Reset"
+      @confirm="confirmReset"
+      @cancel="confirmTimer = null"
+    >
+      <p>The timer starts again from now. You can undo this for a few seconds.</p>
+    </ConfirmDialog>
 
     <ResetDialog
       v-if="dialogTimer"
