@@ -4,6 +4,11 @@ A small web app that shows how long it has been since each chore was last done. 
 
 Stack: Hono and better-sqlite3 on the server, Vue 3 with Vite on the client.
 
+<img width="597" height="686" alt="image" src="https://github.com/user-attachments/assets/a86710de-9518-444d-9e8e-a94cfab3b4bc" />
+
+
+
+
 ## Local development
 
 Requires Node 24.
