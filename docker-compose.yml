@@ -14,8 +14,9 @@ services:
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-}
+    # Host folder for the database and backups. It must exist and be owned by uid 1000.
     volumes:
-      - data:/data
+      - ${DATA_DIR:-/docker/time-since}:/data
     # To keep backups on other storage, mount it here and keep BACKUP_DIR=/data/backups:
     #   - /mnt/backup/time-since:/data/backups
 
@@ -27,6 +28,3 @@ services:
       TUNNEL_TOKEN: ${TUNNEL_TOKEN:?set TUNNEL_TOKEN}
     depends_on:
       - app
-
-volumes:
-  data:

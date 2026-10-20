@@ -49,8 +49,12 @@ The DNS for `thummper.net` must be on Cloudflare.
 
 ### 3. Create the Portainer stack
 
-1. In Portainer, go to Stacks, Add stack, Repository. Use this repository and `docker-compose.yml`.
-2. Add these environment variables:
+1. On the Docker host, create the data folder. The app runs as uid 1000, so that user must own the folder. If Docker creates the folder, root owns it and the app cannot write:
+   ```bash
+   sudo mkdir -p /docker/time-since && sudo chown 1000:1000 /docker/time-since
+   ```
+2. In Portainer, go to Stacks, Add stack, Repository. Use this repository and `docker-compose.yml`.
+3. Add these environment variables:
 
 | Variable            | Value                                                        |
 | ------------------- | ------------------------------------------------------------ |
@@ -59,10 +63,11 @@ The DNS for `thummper.net` must be on Cloudflare.
 | `VAPID_PUBLIC_KEY`  | from step 1                                                  |
 | `VAPID_PRIVATE_KEY` | from step 1                                                  |
 | `VAPID_SUBJECT`     | `mailto:you@example.com`                                     |
+| `DATA_DIR`          | optional, host folder for the database (default `/docker/time-since`) |
 
-3. Deploy the stack. Portainer builds the image from the Dockerfile.
-4. Open the public hostname. Check `https://<host>/api/health` returns `{"ok":true}`.
-5. On the Android phone, open the site in Chrome, install it, and enable alerts in Settings.
+4. Deploy the stack. Portainer builds the image from the Dockerfile.
+5. Open the public hostname. Check `https://<host>/api/health` returns `{"ok":true}`.
+6. On the Android phone, open the site in Chrome, install it, and enable alerts in Settings.
 
 For a LAN test without the tunnel, uncomment `ports` in `docker-compose.yml` and set `PUBLIC_ORIGIN` to the LAN URL. Push needs https, so alerts only work through the tunnel.
 
@@ -74,15 +79,14 @@ Pull the latest code and redeploy: in Portainer, open the stack, enable "Re-pull
 
 The app writes a consistent copy of the database (`VACUUM INTO`) every night at 02:30 server time into `/data/backups/` (the `BACKUP_DIR` variable). It keeps the newest 14 files, named `time-since-YYYYMMDD-HHMMSS.db`.
 
-The `data` volume holds both the live database and the backups. If the disk dies, both go. Put `BACKUP_DIR` on different storage (mount a host path or NFS share over `/data/backups`, see the comment in `docker-compose.yml`), or make sure the Proxmox host's backup job covers the VM disk.
+The host folder `/docker/time-since` (the `DATA_DIR` variable) holds both the live database and the backups. If the disk dies, both go. Put `BACKUP_DIR` on different storage (mount a host path or NFS share over `/data/backups`, see the comment in `docker-compose.yml`), or make sure the Proxmox host's backup job covers the VM disk.
 
 To restore:
 
 1. In Portainer, stop the `app` container.
-2. Copy the chosen backup over `/data/time-since.db` in the volume, and delete `/data/time-since.db-wal` and `/data/time-since.db-shm` if they exist. For example, with a temporary container:
+2. Copy the chosen backup over `/data/time-since.db` in the data folder, and delete `/data/time-since.db-wal` and `/data/time-since.db-shm` if they exist. On the Docker host:
    ```bash
-   docker run --rm -v <stack>_data:/data alpine sh -c \
-     "cp /data/backups/time-since-YYYYMMDD-HHMMSS.db /data/time-since.db && rm -f /data/time-since.db-wal /data/time-since.db-shm && chown 1000:1000 /data/time-since.db"
+   cd /docker/time-since && sudo cp backups/time-since-YYYYMMDD-HHMMSS.db time-since.db && sudo rm -f time-since.db-wal time-since.db-shm && sudo chown 1000:1000 time-since.db
    ```
 3. Start the `app` container and check `/api/health`.
 
