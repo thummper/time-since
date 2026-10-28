@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { initTheme, THEME_KEY, useTheme } from '../../src/client/theme.ts'
+import { initTheme, THEME_COLORS, THEME_KEY, useTheme } from '../../src/client/theme.ts'
 import { installFetch, listRoute } from './helpers.ts'
 import { meRoute, mountApp, REAL_USER } from './mountApp.ts'
 
@@ -29,6 +29,22 @@ describe('theme', () => {
     setTheme('system')
     expect(root().dataset.theme).toBeUndefined()
     expect(localStorage.getItem(THEME_KEY)).toBeNull()
+  })
+
+  it('sets the status bar color to match the chosen theme', () => {
+    document.head.innerHTML =
+      '<meta name="theme-color" media="(prefers-color-scheme: light)">' +
+      '<meta name="theme-color" media="(prefers-color-scheme: dark)">'
+    const colors = () =>
+      [...document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')].map((m) => m.content)
+    const { setTheme } = useTheme()
+    setTheme('dark')
+    expect(colors()).toEqual([THEME_COLORS.dark, THEME_COLORS.dark])
+    setTheme('light')
+    expect(colors()).toEqual([THEME_COLORS.light, THEME_COLORS.light])
+    setTheme('system')
+    expect(colors()).toEqual([THEME_COLORS.light, THEME_COLORS.dark])
+    document.head.innerHTML = ''
   })
 
   it('restores the saved choice on start and ignores unknown values', () => {
