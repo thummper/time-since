@@ -178,6 +178,40 @@ describe('TimerList', () => {
     expect(wrapper.findAll('[role="status"]')).toHaveLength(2)
   })
 
+  it('lifts the undo toasts above an open dialog, so Undo still works', async () => {
+    const { count } = installFetch([
+      meRoute(REAL_USER),
+      listRoute(timerView({ id: 1, name: 'A' }), timerView({ id: 2, name: 'B' })),
+      [
+        'POST',
+        /^\/api\/timers\/1\/resets$/,
+        () => [201, { reset: resetView({ id: 99, at: T0 }) }],
+      ],
+      ['DELETE', /^\/api\/timers\/1\/resets\/99$/, () => [204, null]],
+    ])
+    const { wrapper } = await mountApp('/')
+    await tapReset(wrapper, 'A')
+    await flushPromises()
+    await wrapper.find('button[aria-label="Reset B"]').trigger('click')
+    const dialog = wrapper.find('[role="dialog"]')
+    expect(dialog.exists()).toBe(true)
+    const style = document.documentElement.style
+    expect(style.getPropertyValue('--dialog-lift')).toMatch(/^\d+px$/)
+    const undo = wrapper.findAll('[role="status"] button').find((b) => b.text() === 'Undo')!
+    expect(dialog.element.contains(undo.element)).toBe(false)
+    await undo.trigger('click')
+    await flushPromises()
+    expect(count('DELETE', /\/resets\/99$/)).toBe(1)
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(true)
+    expect(style.getPropertyValue('--toast-stack')).toMatch(/px$/)
+    await wrapper
+      .find('[role="dialog"]')
+      .findAll('button')
+      .find((b) => b.text() === 'Cancel')!
+      .trigger('click')
+    expect(style.getPropertyValue('--dialog-lift')).toBe('')
+  })
+
   it('asks for confirmation in a dialog before it logs a reset', async () => {
     const { calls } = installFetch([
       meRoute(REAL_USER),

@@ -3,7 +3,6 @@ import { watchEffect } from 'vue'
 import DemoBanner from './components/DemoBanner.vue'
 import AppIcon from './components/AppIcon.vue'
 import ToastHost from './components/ToastHost.vue'
-import UpdatePrompt from './components/UpdatePrompt.vue'
 import { useAuthStore } from './stores/auth.ts'
 import { useTimersStore } from './stores/timers.ts'
 
@@ -23,7 +22,7 @@ watchEffect((onCleanup) => {
 </script>
 
 <template>
-  <div class="min-h-screen pb-24">
+  <div class="min-h-screen pb-[calc(6rem+var(--toast-stack,0px))]">
     <header v-if="auth.user">
       <div class="mx-auto flex max-w-xl items-center justify-between px-4 pt-4">
         <RouterLink
@@ -46,6 +45,5 @@ watchEffect((onCleanup) => {
       <RouterView />
     </main>
     <ToastHost />
-    <UpdatePrompt />
   </div>
 </template>

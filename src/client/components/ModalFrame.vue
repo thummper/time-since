@@ -6,6 +6,14 @@ const emit = defineEmits<{ close: [] }>()
 
 const panel = ref<HTMLElement | null>(null)
 let opener: Element | null = null
+let observer: ResizeObserver | undefined
+
+/** Publishes the space from the panel top to the screen bottom, so the toasts sit above the panel. */
+function measure(): void {
+  if (!panel.value) return
+  const lift = Math.max(0, window.innerHeight - panel.value.getBoundingClientRect().top)
+  document.documentElement.style.setProperty('--dialog-lift', `${lift}px`)
+}
 
 onMounted(() => {
   opener = document.activeElement
@@ -13,8 +21,17 @@ onMounted(() => {
     'input, textarea, select, button:not([data-dismiss])',
   )
   first?.focus()
+  measure()
+  window.addEventListener('resize', measure)
+  if (typeof ResizeObserver !== 'undefined' && panel.value) {
+    observer = new ResizeObserver(measure)
+    observer.observe(panel.value)
+  }
 })
 onBeforeUnmount(() => {
+  observer?.disconnect()
+  window.removeEventListener('resize', measure)
+  document.documentElement.style.removeProperty('--dialog-lift')
   if (opener instanceof HTMLElement) opener.focus()
 })
 
