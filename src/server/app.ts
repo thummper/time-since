@@ -10,6 +10,7 @@ import { openDb, type Db } from './db/client.ts'
 import { pushRoutes } from './push/routes.ts'
 import { DEFAULT_LIMITS, type LimitSettings } from './security/rateLimit.ts'
 import { timerRoutes } from './timers/routes.ts'
+import { sectionRoutes } from './sections/routes.ts'
 
 export interface AppOptions {
   /** Directory holding the built client. */
@@ -101,6 +102,7 @@ export function createApp(options: AppOptions = {}): Hono<AuthEnv> {
   )
 
   app.route('/api/timers', timerRoutes({ db, limits, now }))
+  app.route('/api/sections', sectionRoutes({ db, limits, now }))
 
   app.route('/api/push', pushRoutes({ db, vapidPublicKey: options.vapidPublicKey, limits, now }))
 
