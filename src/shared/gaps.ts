@@ -13,11 +13,9 @@ export interface Gap {
   note: string | null
 }
 
-export interface GapSeries {
-  /** Oldest first. */
-  gaps: Gap[]
-  /** The unfinished run since the latest entry. */
-  current: { startAt: number; ms: number }
+export interface CurrentRun {
+  startAt: number
+  ms: number
 }
 
 export interface Goal {
@@ -33,10 +31,10 @@ export interface GoalProgress {
   remainingMs: number
 }
 
-/** Gaps between neighbors in time order; ties order by id, as in `lastReset`. */
-export function gapSeries(entries: readonly GapEntry[], now: number): GapSeries {
+/** Gaps between neighbors in time order, oldest first; ties order by id, as in `lastReset`. */
+export function finishedGaps(entries: readonly GapEntry[]): Gap[] {
   const sorted = [...entries].sort((a, b) => a.at - b.at || a.id - b.id)
-  const gaps = sorted.slice(1).map((end, i) => {
+  return sorted.slice(1).map((end, i) => {
     const start = sorted[i]!
     return {
       startAt: start.at,
@@ -46,8 +44,19 @@ export function gapSeries(entries: readonly GapEntry[], now: number): GapSeries 
       note: end.note,
     }
   })
-  const lastAt = sorted.at(-1)?.at ?? now
-  return { gaps, current: { startAt: lastAt, ms: Math.max(0, now - lastAt) } }
+}
+
+/**
+ * The unfinished run since the latest entry. `gaps` is `finishedGaps(entries)`; with no gaps
+ * the log holds at most the origin entry.
+ */
+export function currentRun(
+  gaps: readonly Gap[],
+  entries: readonly GapEntry[],
+  now: number,
+): CurrentRun {
+  const startAt = gaps.at(-1)?.endAt ?? entries[0]?.at ?? now
+  return { startAt, ms: Math.max(0, now - startAt) }
 }
 
 /** R2: the target when set, otherwise the average gap. R3: no goal without either. */

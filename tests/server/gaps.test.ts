@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { gapSeries, goalProgress, resolveGoal } from '../../src/shared/gaps.ts'
+import {
+  currentRun,
+  finishedGaps,
+  goalProgress,
+  resolveGoal,
+  type GapEntry,
+} from '../../src/shared/gaps.ts'
 import { stats } from '../../src/shared/stats.ts'
 
 const DAY = 24 * 60 * 60 * 1000
@@ -10,7 +16,12 @@ const entry = (id: number, day: number, note: string | null = null, isOrigin = f
   isOrigin,
 })
 
-describe('gapSeries', () => {
+function gapSeries(entries: GapEntry[], now: number) {
+  const gaps = finishedGaps(entries)
+  return { gaps, current: currentRun(gaps, entries, now) }
+}
+
+describe('finishedGaps and currentRun', () => {
   it('entries at days 1, 4, 9, 13 give gaps of 3, 5, 4 days, oldest first', () => {
     const series = gapSeries(
       [entry(1, 1, null, true), entry(2, 4), entry(3, 9), entry(4, 13)],

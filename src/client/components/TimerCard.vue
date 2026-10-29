@@ -35,7 +35,9 @@ const monogram = computed(() => props.timer.name.trim().charAt(0).toUpperCase() 
 /** R2: the target, or the average gap without one. */
 const goal = computed(() => resolveGoal(props.timer.targetMs, props.timer.stats.averageGapMs))
 const progress = computed(() => (goal.value ? goalProgress(elapsedMs.value, goal.value) : null))
-const goalState = computed(() => (progress.value?.past ? `past-${goal.value!.kind}` : 'before'))
+const goalState = computed(() =>
+  goal.value && progress.value?.past ? `past-${goal.value.kind}` : 'before',
+)
 
 let pressTimer: ReturnType<typeof setTimeout> | undefined
 let longPressed = false

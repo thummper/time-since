@@ -35,8 +35,11 @@ describe('GapGraph', () => {
     const wrapper = mountGraph(log(Array.from({ length: 45 }, () => 2)))
     expect(gapBars(wrapper)).toHaveLength(45)
     const track = wrapper.find('[data-testid="gap-track"]')
-    // 46 slots at one thirty-first of the box each.
+    // 46 slots at one thirty-first of the box each: the track is 46/31 of the box,
+    // and each slot is 1/46 of the track, so the slots fill it exactly with no overflow.
     expect(track.attributes('style')).toContain(`width: ${(46 / 31) * 100}%`)
+    const slot = gapBars(wrapper)[0]!
+    expect(slot.attributes('style')).toContain(`width: ${100 / 46}%`)
   })
 
   it('right-aligns a short series at one thirty-first of the box per slot', () => {

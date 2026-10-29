@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { formatElapsed } from '../../shared/format.ts'
+import { formatElapsed, formatWhen } from '../../shared/format.ts'
 import { resolveGoal } from '../../shared/gaps.ts'
 import { NOTE_MAX } from '../../shared/limits.ts'
 import { isPastTarget, overdueByMs } from '../../shared/overdue.ts'
@@ -53,9 +53,6 @@ const overdueMs = computed(() =>
 const overdue = computed(() =>
   timer.value ? isPastTarget(timer.value.targetMs, timer.value.lastReset.at, timers.now) : false,
 )
-
-const formatWhen = (at: number) =>
-  new Date(at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 
 async function load(): Promise<void> {
   loading.value = true

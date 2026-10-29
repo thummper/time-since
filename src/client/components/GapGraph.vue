@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
-import { formatElapsed } from '../../shared/format.ts'
-import { gapSeries, type GapEntry, type Goal } from '../../shared/gaps.ts'
+import { formatElapsed, formatWhen } from '../../shared/format.ts'
+import { currentRun, finishedGaps, type GapEntry, type Goal } from '../../shared/gaps.ts'
 
 /** 30 gaps plus the current run fill the box (R9, KTD7). */
 const VISIBLE_SLOTS = 31
@@ -13,23 +13,37 @@ const props = defineProps<{
   goal: Goal | null
 }>()
 
-const series = computed(() => gapSeries(props.entries, props.now))
-const slots = computed(() => series.value.gaps.length + 1)
+// Finished gaps change only with the log; only the current run follows the 1s clock.
+const gaps = computed(() =>
+  finishedGaps(props.entries).map((gap) => ({
+    ...gap,
+    startText: formatWhen(gap.startAt),
+    endText: formatWhen(gap.endAt),
+  })),
+)
+const gapRange = computed(() =>
+  gaps.value.reduce(
+    (range, g) => ({ min: Math.min(range.min, g.ms), max: Math.max(range.max, g.ms) }),
+    { min: Infinity, max: 0 },
+  ),
+)
+const current = computed(() => currentRun(gaps.value, props.entries, props.now))
+const slots = computed(() => gaps.value.length + 1)
 /** One y-scale for the whole history, so scrolling never rescales (KTD5). */
 const scaleMs = computed(() =>
-  Math.max(1, series.value.current.ms, props.goal?.ms ?? 0, ...series.value.gaps.map((g) => g.ms)),
+  Math.max(1, current.value.ms, props.goal?.ms ?? 0, gapRange.value.max),
 )
 const heightPct = (ms: number) => `${(ms / scaleMs.value) * 100}%`
-const trackWidth = computed(
-  () => `${(Math.max(slots.value, VISIBLE_SLOTS) / VISIBLE_SLOTS) * 100}%`,
-)
-const slotWidth = `${100 / VISIBLE_SLOTS}%`
+// The track is `max(slots, 31)` box-thirty-firsts wide, so each slot is one share of the track.
+const trackSlots = computed(() => Math.max(slots.value, VISIBLE_SLOTS))
+const trackWidth = computed(() => `${(trackSlots.value / VISIBLE_SLOTS) * 100}%`)
+const slotWidth = computed(() => `${100 / trackSlots.value}%`)
 
 /** The selected gap's ending entry id, `'current'`, or nothing. */
 const selected = ref<number | 'current' | null>(null)
 const selectedGap = computed(() =>
   typeof selected.value === 'number'
-    ? (series.value.gaps.find((g) => g.endId === selected.value) ?? null)
+    ? (gaps.value.find((g) => g.endId === selected.value) ?? null)
     : null,
 )
 
@@ -38,24 +52,23 @@ function toggle(key: number | 'current'): void {
 }
 
 // Close the details once their gap leaves the log.
-watch(series, () => {
+watch(gaps, () => {
   if (typeof selected.value === 'number' && !selectedGap.value) selected.value = null
 })
 
-const formatWhen = (at: number) =>
-  new Date(at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 const isoWhen = (at: number) => new Date(at).toISOString()
 
-const summary = computed(() => {
-  const { gaps, current } = series.value
-  const run = `Current run ${formatElapsed(current.ms)}.`
-  if (gaps.length === 0) return `No finished gaps yet. ${run}`
-  const lengths = gaps.map((g) => g.ms)
+const gapsSummary = computed(() => {
+  const list = gaps.value
+  if (list.length === 0) return 'No finished gaps yet.'
   return (
-    `${gaps.length} finished gaps, shortest ${formatElapsed(Math.min(...lengths))}, ` +
-    `longest ${formatElapsed(Math.max(...lengths))}, latest ${formatElapsed(lengths.at(-1)!)}. ${run}`
+    `${list.length} finished gaps, shortest ${formatElapsed(gapRange.value.min)}, ` +
+    `longest ${formatElapsed(gapRange.value.max)}, latest ${formatElapsed(list.at(-1)!.ms)}.`
   )
 })
+const summary = computed(
+  () => `${gapsSummary.value} Current run ${formatElapsed(current.value.ms)}.`,
+)
 
 // Open at the newest end, but do not pull the view away from a selected bar (KTD7).
 const box = ref<HTMLElement | null>(null)
@@ -94,14 +107,14 @@ watch(slots, (count, previous) => {
         </div>
 
         <button
-          v-for="gap in series.gaps"
+          v-for="gap in gaps"
           :key="gap.endId"
           type="button"
           class="gap-slot"
           data-testid="gap-bar"
           :style="{ width: slotWidth }"
           :aria-pressed="selected === gap.endId"
-          :aria-label="`Gap of ${formatElapsed(gap.ms)}, ${formatWhen(gap.startAt)} to ${formatWhen(gap.endAt)}`"
+          :aria-label="`Gap of ${formatElapsed(gap.ms)}, ${gap.startText} to ${gap.endText}`"
           @click="toggle(gap.endId)"
         >
           <span
@@ -116,19 +129,19 @@ watch(slots, (count, previous) => {
           data-testid="current-bar"
           :style="{ width: slotWidth }"
           :aria-pressed="selected === 'current'"
-          :aria-label="`Current run of ${formatElapsed(series.current.ms)} since ${formatWhen(series.current.startAt)}`"
+          :aria-label="`Current run of ${formatElapsed(current.ms)} since ${formatWhen(current.startAt)}`"
           @click="toggle('current')"
         >
           <span
             class="gap-fill gap-fill-current"
             data-testid="bar-fill"
-            :style="{ height: heightPct(series.current.ms), minHeight: '2px' }"
+            :style="{ height: heightPct(current.ms), minHeight: '2px' }"
           />
         </button>
       </div>
     </div>
 
-    <p v-if="series.gaps.length === 0" class="text-sm text-muted">
+    <p v-if="gaps.length === 0" class="text-sm text-muted">
       The graph fills in after the first reset.
     </p>
 
@@ -141,21 +154,17 @@ watch(slots, (count, previous) => {
       <template v-if="selectedGap">
         <p class="font-semibold tabular-nums">{{ formatElapsed(selectedGap.ms) }}</p>
         <p class="text-muted">
-          <time :datetime="isoWhen(selectedGap.startAt)">{{
-            formatWhen(selectedGap.startAt)
-          }}</time>
+          <time :datetime="isoWhen(selectedGap.startAt)">{{ selectedGap.startText }}</time>
           to
-          <time :datetime="isoWhen(selectedGap.endAt)">{{ formatWhen(selectedGap.endAt) }}</time>
+          <time :datetime="isoWhen(selectedGap.endAt)">{{ selectedGap.endText }}</time>
         </p>
         <p v-if="selectedGap.note" class="break-words">{{ selectedGap.note }}</p>
       </template>
       <template v-else>
-        <p class="font-semibold tabular-nums">{{ formatElapsed(series.current.ms) }} so far</p>
+        <p class="font-semibold tabular-nums">{{ formatElapsed(current.ms) }} so far</p>
         <p class="text-muted">
           Since
-          <time :datetime="isoWhen(series.current.startAt)">{{
-            formatWhen(series.current.startAt)
-          }}</time>
+          <time :datetime="isoWhen(current.startAt)">{{ formatWhen(current.startAt) }}</time>
         </p>
       </template>
     </div>
