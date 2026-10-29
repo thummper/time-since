@@ -129,11 +129,11 @@ flowchart TB
 
 Card bar states, per R4 to R6:
 
-| Goal | Run before goal | Run past goal |
-|---|---|---|
-| Target | Bar fills, label "Due in X" (unchanged) | Bar full in the overdue color (`--danger`, KTD9), label "Overdue by X", card outline (unchanged) |
-| Average | Bar fills, label "X to average" | Bar full in a calm, faded ink, label "X past average" |
-| None | No bar | No bar |
+| Goal    | Run before goal                         | Run past goal                                                                                    |
+| ------- | --------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Target  | Bar fills, label "Due in X" (unchanged) | Bar full in the overdue color (`--danger`, KTD9), label "Overdue by X", card outline (unchanged) |
+| Average | Bar fills, label "X to average"         | Bar full in a calm, faded ink, label "X past average"                                            |
+| None    | No bar                                  | No bar                                                                                           |
 
 ### Assumptions
 
@@ -160,10 +160,12 @@ U1 has no dependencies. U2 and U3 depend on U1 and do not touch the same files. 
 **Dependencies:** None.
 
 **Files:**
+
 - Create `src/shared/gaps.ts`
 - Create `tests/server/gaps.test.ts`
 
 **Approach:**
+
 1. A series function takes log entries and `now`. It sorts per KTD4. It returns finished gaps oldest first, each with start time, end time, length, the ending entry's id, and the ending entry's note. It also returns the current run: start time (the latest entry's `at`) and length so far.
 2. A goal function takes `targetMs` and `averageGapMs`. It returns the target as kind `target` when set. Otherwise it returns the average as kind `average` when not null. Otherwise it returns null, per R3. A goal value of 0 or less also returns null, which keeps the card's existing `target <= 0` guard.
 3. A progress helper takes elapsed time and a goal. It returns the fill percent clamped to 0 to 100, whether the run is past the goal, and the time left or the time past. "Past" is strictly greater, to match `isPastTarget` in `src/shared/overdue.ts`.
@@ -172,6 +174,7 @@ U1 has no dependencies. U2 and U3 depend on U1 and do not touch the same files. 
 **Patterns to follow:** `src/shared/stats.ts` for the sort and tie rule. `src/shared/overdue.ts` for the strict "past" comparison. `tests/server/stats.test.ts` for the `entry(id, day)` test helper style.
 
 **Test scenarios:**
+
 - Entries at days 1, 4, 9, 13 give three gaps of 3, 5, and 4 days, oldest first.
 - The note of each gap comes from the entry that ends it. The origin entry's note never appears as a gap note.
 - A backdated entry (added later but with an earlier `at`) lands in time order and splits the gap it falls in.
@@ -195,11 +198,13 @@ U1 has no dependencies. U2 and U3 depend on U1 and do not touch the same files. 
 **Dependencies:** U1.
 
 **Files:**
+
 - Modify `src/client/components/TimerCard.vue`
 - Modify `src/client/style.css` only if the calm fill needs a new token
 - Modify `tests/client/TimerCard.test.ts`
 
 **Approach:**
+
 1. Replace the card's local `progress` and `dueInMs` computeds with the U1 goal and progress helpers. Build the goal from `timer.targetMs` and `timer.stats.averageGapMs`.
 2. Show the bar when a goal exists, not only when a target exists.
 3. Keep the target labels and the overdue outline as they are. Add the overdue fill (KTD9) on the bar when a target is passed.
@@ -209,6 +214,7 @@ U1 has no dependencies. U2 and U3 depend on U1 and do not touch the same files. 
 **Patterns to follow:** The existing bar markup and tone classes in `src/client/components/TimerCard.vue`. The `--danger` token in `src/client/style.css`.
 
 **Test scenarios:**
+
 - Covers AE1. A timer with no target, an average of 4 days, and a 2-day run shows "2d 0h to average" and a bar at 50.
 - Covers AE2. A timer with a 14-day target and a 17-day run shows "Overdue by 3d 0h", keeps `data-overdue="true"`, and the bar carries the past-target state.
 - Covers AE3. A timer with no target, a 4-day average, and a 6-day run shows "2d 0h past average", has no `data-overdue`, and the bar carries the past-average state.
@@ -227,10 +233,12 @@ U1 has no dependencies. U2 and U3 depend on U1 and do not touch the same files. 
 **Dependencies:** U1.
 
 **Files:**
+
 - Create `src/client/components/GapGraph.vue`
 - Create `tests/client/GapGraph.test.ts`
 
 **Approach:**
+
 1. Props: the log entries, `now`, and the resolved goal. Build the series with U1.
 2. Render a scroll box that holds a row of bar columns per KTD8. Size slots per KTD7 and the y-scale per KTD5.
 3. Draw finished gaps as solid bars and the current run as a distinct bar, such as an outline, per R10.
@@ -245,6 +253,7 @@ U1 has no dependencies. U2 and U3 depend on U1 and do not touch the same files. 
 **Patterns to follow:** `src/client/components/StatsPanel.vue` for card styling and `data-testid` use. The `formatWhen` date style in `src/client/views/TimerDetail.vue`, and `formatElapsed` in `src/shared/format.ts`.
 
 **Test scenarios:**
+
 - Three finished gaps render three gap bars plus one current-run bar.
 - Covers AE5. 45 finished gaps render 45 gap bars, and the bar slots are sized so only 31 fit the box width.
 - Covers AE6. Tapping a gap bar whose ending reset has the note "work trip" shows both dates, the length, and "work trip".
@@ -269,10 +278,12 @@ U1 has no dependencies. U2 and U3 depend on U1 and do not touch the same files. 
 **Dependencies:** U3.
 
 **Files:**
+
 - Modify `src/client/views/TimerDetail.vue`
 - Modify `tests/client/TimerDetail.test.ts`
 
 **Approach:**
+
 1. Pass the log from `timers.logs[id]`, `timers.now`, and the U1 goal for the timer to `GapGraph`.
 2. Render the graph only once the log has loaded, so it never flashes an empty state.
 3. Keep the existing log list, stats panel, and actions unchanged.
@@ -280,6 +291,7 @@ U1 has no dependencies. U2 and U3 depend on U1 and do not touch the same files. 
 **Patterns to follow:** The existing `StatsPanel` placement and the `log` computed in `src/client/views/TimerDetail.vue`.
 
 **Test scenarios:**
+
 - The detail page shows the gap graph with one bar per finished gap plus the current run.
 - Deleting a log entry updates the graph's bar count after the store refreshes.
 - The page still shows stats and the log newest first, as the existing test expects.
@@ -290,13 +302,13 @@ U1 has no dependencies. U2 and U3 depend on U1 and do not touch the same files. 
 
 ## Verification Contract
 
-| Gate | Command | Applies to |
-|---|---|---|
-| Unit and component tests | `npm test` | U1 to U4 |
-| Type check | `npm run typecheck` | U1 to U4 |
-| Lint | `npm run lint` | U1 to U4 |
-| Format | `npx prettier --check .` | U1 to U4 |
-| Browser check | Open the demo in the dev server at phone width and in dark mode, then check the card bars and the detail graph | U2, U4 |
+| Gate                     | Command                                                                                                        | Applies to |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------- | ---------- |
+| Unit and component tests | `npm test`                                                                                                     | U1 to U4   |
+| Type check               | `npm run typecheck`                                                                                            | U1 to U4   |
+| Lint                     | `npm run lint`                                                                                                 | U1 to U4   |
+| Format                   | `npx prettier --check .`                                                                                       | U1 to U4   |
+| Browser check            | Open the demo in the dev server at phone width and in dark mode, then check the card bars and the detail graph | U2, U4     |
 
 ---
 

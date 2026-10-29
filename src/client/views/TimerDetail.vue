@@ -2,11 +2,13 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { formatElapsed } from '../../shared/format.ts'
+import { resolveGoal } from '../../shared/gaps.ts'
 import { NOTE_MAX } from '../../shared/limits.ts'
 import { isPastTarget, overdueByMs } from '../../shared/overdue.ts'
 import { errorMessage } from '../api/client.ts'
 import AppIcon from '../components/AppIcon.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
+import GapGraph from '../components/GapGraph.vue'
 import ModalFrame from '../components/ModalFrame.vue'
 import StatsPanel from '../components/StatsPanel.vue'
 import TimerForm from '../components/TimerForm.vue'
@@ -21,6 +23,9 @@ const id = computed(() => Number(route.params.id))
 const timer = computed(() => timers.byId(id.value))
 const log = computed(() =>
   [...(timers.logs[id.value] ?? [])].sort((a, b) => b.at - a.at || b.id - a.id),
+)
+const goal = computed(() =>
+  timer.value ? resolveGoal(timer.value.targetMs, timer.value.stats.averageGapMs) : null,
 )
 
 /** True once the first load finished, so "no longer exists" never shows too early. */
@@ -181,6 +186,13 @@ async function removeEntry(): Promise<void> {
           Target {{ formatElapsed(timer.targetMs) }}
         </p>
       </header>
+
+      <GapGraph
+        v-if="timers.logs[timer.id]"
+        :entries="timers.logs[timer.id]!"
+        :now="timers.now"
+        :goal="goal"
+      />
 
       <StatsPanel :stats="timer.stats" />
 
