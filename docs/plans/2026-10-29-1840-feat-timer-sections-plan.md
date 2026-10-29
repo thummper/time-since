@@ -59,7 +59,7 @@ Today the list page is one flat list: overdue timers first, then the longest ela
 
 - R7. An overdue timer shows in the Overdue section at the top of the list, not in its home section.
 - R8. The Overdue section cannot collapse.
-- R9. When an overdue timer is reset, it goes back to its home section. The existing rule still applies: the card holds its position while its undo toast is open.
+- R9. When an overdue timer is reset, it moves to its home section at once. Other cards keep their places while its undo toast is open.
 
 **List layout**
 
@@ -86,7 +86,7 @@ flowchart TB
 - AE2. **Covers R4.** Given the user moved "Water plants" to a custom section "House", when the user changes its target, it stays in House.
 - AE3. **Covers R6.** Given "House" holds two timers, when the user deletes House, both timers show in their cadence sections and no timer is lost.
 - AE4. **Covers R7, R8, R13.** Given the user collapsed Weekly, when a Weekly timer becomes overdue, it shows in the open Overdue section at the top.
-- AE5. **Covers R9.** Given an overdue Daily timer, when the user resets it, the card stays in place while the undo toast is open, then moves to Daily.
+- AE5. **Covers R9.** Given an overdue Daily timer, when the user resets it, the card moves to Daily at once, and the other cards keep their places until the undo toast closes.
 - AE6. **Covers R11.** Given no timer has a target of more than 7 days, the list shows no Monthly+ header.
 
 ### Scope Boundaries

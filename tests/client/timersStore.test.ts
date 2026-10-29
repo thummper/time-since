@@ -229,7 +229,7 @@ describe('timers store', () => {
       ])
     })
 
-    it('holds a reset overdue timer in Overdue until the hold is released (AE5)', async () => {
+    it('moves a reset overdue timer to its home section at once (AE5)', async () => {
       const overdue = timerView({ id: 1, targetMs: DAY, lastReset: { id: 10, at: T0 - 2 * DAY } })
       installFetch([
         listRoute(overdue, timerView({ id: 2, targetMs: DAY })),
@@ -242,10 +242,8 @@ describe('timers store', () => {
       const store = useTimersStore()
       await store.fetchTimers()
       await store.reset(1)
-      expect(groupKeys(store)).toEqual([
-        ['overdue', [1]],
-        ['daily', [2]],
-      ])
+      // Its section changes now; its place in the order holds until the undo toast closes.
+      expect(groupKeys(store)).toEqual([['daily', [1, 2]]])
       store.releaseHold(1)
       expect(groupKeys(store)).toEqual([['daily', [2, 1]]])
     })

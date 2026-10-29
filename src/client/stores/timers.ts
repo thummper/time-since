@@ -86,10 +86,15 @@ export const useTimersStore = defineStore('timers', () => {
     return list.sort((a, b) => (position.get(a.id) ?? Infinity) - (position.get(b.id) ?? Infinity))
   })
 
-  /** Section groups in list order (R10), holding sections while a reset is held (KTD8). */
-  const grouped = computed(() =>
-    groupTimers(sorted.value, sections.value, now.value, frozenSections.value ?? undefined),
-  )
+  /**
+   * Section groups in list order (R10). While a reset is held, other timers keep their sections
+   * (KTD8), but a reset timer moves to its home section at once (R9).
+   */
+  const grouped = computed(() => {
+    const frozen = frozenSections.value
+    const others = frozen && new Map([...frozen].filter(([id]) => !isHeld(id)))
+    return groupTimers(sorted.value, sections.value, now.value, others ?? undefined)
+  })
 
   function byId(id: number): TimerView | undefined {
     return timers.value.find((t) => t.id === id)
