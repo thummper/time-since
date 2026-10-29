@@ -3,7 +3,7 @@ import type { Db } from '../db/client.ts'
 import { resets, timers, type Reset, type Timer } from '../db/schema.ts'
 import { isPastTarget } from '../../shared/overdue.ts'
 import { lastReset, stats } from '../../shared/stats.ts'
-import type { ResetView, TimerView } from '../../shared/types.ts'
+import type { Placement, ResetView, TimerView } from '../../shared/types.ts'
 
 export function isOverdue(targetMs: number | null, last: { at: number }, now: number): boolean {
   return isPastTarget(targetMs, last.at, now)
@@ -11,6 +11,21 @@ export function isOverdue(targetMs: number | null, last: { at: number }, now: nu
 
 export function toResetView(row: Reset): ResetView {
   return { id: row.id, at: row.at, note: row.note, isOrigin: row.isOrigin }
+}
+
+/** KTD2: both columns null is automatic placement. */
+export function placementOf(timer: Pick<Timer, 'cadence' | 'sectionId'>): Placement {
+  if (timer.sectionId !== null) return { kind: 'custom', sectionId: timer.sectionId }
+  if (timer.cadence !== null) return { kind: 'cadence', cadence: timer.cadence }
+  return { kind: 'auto' }
+}
+
+/** KTD2: a placement write always sets both columns, so at most one is non-null. */
+export function placementColumns(placement: Placement): Pick<Timer, 'cadence' | 'sectionId'> {
+  return {
+    cadence: placement.kind === 'cadence' ? placement.cadence : null,
+    sectionId: placement.kind === 'custom' ? placement.sectionId : null,
+  }
 }
 
 export function toTimerView(timer: Timer, entries: Reset[], now: number): TimerView {
@@ -23,6 +38,7 @@ export function toTimerView(timer: Timer, entries: Reset[], now: number): TimerV
     createdAt: timer.createdAt,
     lastReset: { id: last.id, at: last.at },
     overdue: isOverdue(timer.targetMs, last, now),
+    placement: placementOf(timer),
     stats: stats(entries),
   }
 }
@@ -73,11 +89,12 @@ export function createTimer(
   targetMs: number | null,
   now: number,
   startedAt: number = now,
+  placement: Placement = { kind: 'auto' },
 ): Timer {
   return db.transaction((tx) => {
     const timer = tx
       .insert(timers)
-      .values({ userId, name, targetMs, createdAt: now })
+      .values({ userId, name, targetMs, ...placementColumns(placement), createdAt: now })
       .returning()
       .get()
     tx.insert(resets)
@@ -90,6 +107,7 @@ export function createTimer(
 export interface TimerChanges {
   name?: string
   targetMs?: number | null
+  placement?: Placement
 }
 
 /** KTD5: a target change that leaves the timer not overdue clears the alert column. */
@@ -100,7 +118,8 @@ export function updateTimer(
   now: number,
   entries: Reset[] = entriesOf(db, timer.id),
 ): Timer {
-  const set: Partial<Timer> = { ...changes }
+  const { placement, ...fields } = changes
+  const set: Partial<Timer> = { ...fields, ...(placement ? placementColumns(placement) : {}) }
   if ('targetMs' in changes) {
     const last = lastReset(entries)!
     if (!isOverdue(changes.targetMs ?? null, last, now)) set.alertedForResetId = null

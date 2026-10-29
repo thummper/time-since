@@ -1,4 +1,6 @@
 import { MINUTE_MS, NAME_MAX, NOTE_MAX, TARGET_MAX_MS, TARGET_MIN_MS } from '../../shared/limits.ts'
+import { isCadence } from '../../shared/sections.ts'
+import type { Placement } from '../../shared/types.ts'
 
 export const FUTURE_TOLERANCE_MS = MINUTE_MS
 export const MAX_TIMERS = 50
@@ -52,3 +54,21 @@ export const parseResetAt = (value: unknown, now: number) => parsePastTime(value
 /** When a new timer's origin entry happened. */
 export const parseStartedAt = (value: unknown, now: number) =>
   parsePastTime(value, now, 'Start time')
+
+/** Checks the placement shape only. The route checks that a custom section belongs to the user. */
+export function parsePlacement(value: unknown): Parsed<Placement> {
+  const invalid = fail('Section is not valid')
+  if (typeof value !== 'object' || value === null) return invalid
+  const raw = value as Record<string, unknown>
+  if (raw.kind === 'auto') return ok({ kind: 'auto' })
+  if (raw.kind === 'cadence') {
+    return isCadence(raw.cadence) ? ok({ kind: 'cadence', cadence: raw.cadence }) : invalid
+  }
+  if (raw.kind === 'custom') {
+    const id = raw.sectionId
+    return typeof id === 'number' && Number.isSafeInteger(id) && id > 0
+      ? ok({ kind: 'custom', sectionId: id })
+      : invalid
+  }
+  return invalid
+}

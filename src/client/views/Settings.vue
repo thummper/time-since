@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AppIcon from '../components/AppIcon.vue'
 import NotificationToggle from '../components/NotificationToggle.vue'
+import SectionsCard from '../components/SectionsCard.vue'
 import { useAuthStore } from '../stores/auth.ts'
 import { type ThemeChoice, useTheme } from '../theme.ts'
 
@@ -63,6 +64,8 @@ async function leave(): Promise<void> {
       </div>
       <p class="text-sm text-muted">System follows your device's light or dark setting.</p>
     </fieldset>
+
+    <SectionsCard />
 
     <NotificationToggle v-if="auth.user && !auth.user.isDemo" />
 

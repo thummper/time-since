@@ -16,17 +16,23 @@ const submitWith = async (name: string, amount: string, unit: string) => {
 describe('TimerForm', () => {
   it('converts 3 days to a target in milliseconds', async () => {
     const wrapper = await submitWith('Aquarium', '3', 'days')
-    expect(wrapper.emitted('submit')![0]).toEqual([{ name: 'Aquarium', targetMs: 3 * DAY }])
+    expect(wrapper.emitted('submit')![0]).toEqual([
+      { name: 'Aquarium', targetMs: 3 * DAY, placement: { kind: 'auto' } },
+    ])
   })
 
   it('converts hours', async () => {
     const wrapper = await submitWith('Filter', '6', 'hours')
-    expect(wrapper.emitted('submit')![0]).toEqual([{ name: 'Filter', targetMs: 6 * HOUR }])
+    expect(wrapper.emitted('submit')![0]).toEqual([
+      { name: 'Filter', targetMs: 6 * HOUR, placement: { kind: 'auto' } },
+    ])
   })
 
   it('sends a null target when the amount is blank', async () => {
     const wrapper = await submitWith('Plants', '', 'days')
-    expect(wrapper.emitted('submit')![0]).toEqual([{ name: 'Plants', targetMs: null }])
+    expect(wrapper.emitted('submit')![0]).toEqual([
+      { name: 'Plants', targetMs: null, placement: { kind: 'auto' } },
+    ])
   })
 
   it('rejects an empty name and an out-of-range target', async () => {
@@ -50,7 +56,12 @@ describe('TimerForm', () => {
     await wrapper.find('input[name="started"]').setValue('2020-01-02T03:04')
     await wrapper.find('form').trigger('submit')
     expect(wrapper.emitted('submit')![0]).toEqual([
-      { name: 'Aquarium', targetMs: null, startedAt: new Date('2020-01-02T03:04').getTime() },
+      {
+        name: 'Aquarium',
+        targetMs: null,
+        startedAt: new Date('2020-01-02T03:04').getTime(),
+        placement: { kind: 'auto' },
+      },
     ])
   })
 
@@ -65,5 +76,79 @@ describe('TimerForm', () => {
 
   it('hides the start field by default', () => {
     expect(mount(TimerForm).find('input[name="started"]').exists()).toBe(false)
+  })
+
+  describe('section picker', () => {
+    const sections = [
+      { id: 8, name: 'Car' },
+      { id: 7, name: 'house' },
+    ]
+    const submit = async (wrapper: ReturnType<typeof mount>) => {
+      await wrapper.find('input[name="name"]').setValue('Plants')
+      await wrapper.find('form').trigger('submit')
+    }
+
+    it('defaults to Automatic for a new timer', () => {
+      const wrapper = mount(TimerForm, { props: { sections } })
+      expect((wrapper.find('select[name="section"]').element as HTMLSelectElement).value).toBe(
+        'auto',
+      )
+    })
+
+    it('lists the custom sections A to Z after the cadences', () => {
+      const wrapper = mount(TimerForm, { props: { sections } })
+      expect(wrapper.findAll('select[name="section"] option').map((o) => o.text())).toEqual([
+        'Automatic (from target)',
+        'Daily',
+        'Weekly',
+        'Monthly+',
+        'Other',
+        'Car',
+        'house',
+        'New section…',
+      ])
+    })
+
+    it('preselects the current placement when editing', () => {
+      const wrapper = mount(TimerForm, {
+        props: {
+          sections,
+          initial: { name: 'X', targetMs: null, placement: { kind: 'custom', sectionId: 7 } },
+        },
+      })
+      expect((wrapper.find('select[name="section"]').element as HTMLSelectElement).value).toBe(
+        'custom:7',
+      )
+    })
+
+    it('sends a cadence placement', async () => {
+      const wrapper = mount(TimerForm, { props: { sections } })
+      await wrapper.find('select[name="section"]').setValue('cadence:weekly')
+      await submit(wrapper)
+      expect(wrapper.emitted('submit')![0]![0]).toMatchObject({
+        placement: { kind: 'cadence', cadence: 'weekly' },
+      })
+    })
+
+    it('sends a custom placement by id', async () => {
+      const wrapper = mount(TimerForm, { props: { sections } })
+      await wrapper.find('select[name="section"]').setValue('custom:8')
+      await submit(wrapper)
+      expect(wrapper.emitted('submit')![0]![0]).toMatchObject({
+        placement: { kind: 'custom', sectionId: 8 },
+      })
+    })
+
+    it('asks for a name for a new section and sends it', async () => {
+      const wrapper = mount(TimerForm, { props: { sections } })
+      expect(wrapper.find('input[name="newSection"]').exists()).toBe(false)
+      await wrapper.find('select[name="section"]').setValue('new')
+      await submit(wrapper)
+      expect(wrapper.emitted('submit')).toBeUndefined()
+      expect(wrapper.find('[role="alert"]').text()).toContain('Section name')
+      await wrapper.find('input[name="newSection"]').setValue('  Garden ')
+      await wrapper.find('form').trigger('submit')
+      expect(wrapper.emitted('submit')![0]![0]).toMatchObject({ newSection: 'Garden' })
+    })
   })
 })

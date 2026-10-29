@@ -1,6 +1,6 @@
 import { Hono, type Context } from 'hono'
 import type { Db } from '../db/client.ts'
-import { readJson } from '../http.ts'
+import { parseId, readJson } from '../http.ts'
 import { requireUser, type AuthEnv } from '../auth/middleware.ts'
 import { limiter, type LimitSettings } from '../security/rateLimit.ts'
 import { MINUTE_MS } from '../../shared/limits.ts'
@@ -9,20 +9,19 @@ import {
   MAX_TIMERS,
   parseName,
   parseNote,
+  parsePlacement,
   parseResetAt,
   parseStartedAt,
   parseTarget,
 } from './validation.ts'
 import * as svc from './service.ts'
+import { getOwnedSection, listSections, toSectionView } from '../sections/service.ts'
+import type { Placement } from '../../shared/types.ts'
 
 export interface TimerRouteOptions {
   db: Db
   limits: LimitSettings
   now: () => number
-}
-
-function parseId(value: string | undefined): number | null {
-  return value !== undefined && /^\d{1,15}$/.test(value) ? Number(value) : null
 }
 
 export function timerRoutes({ db, limits, now }: TimerRouteOptions): Hono<AuthEnv> {
@@ -47,9 +46,24 @@ export function timerRoutes({ db, limits, now }: TimerRouteOptions): Hono<AuthEn
     return id === null ? undefined : svc.getOwnedTimer(db, userId(c), id)
   }
 
+  /** A placement from `body.placement`; a custom section must belong to the user. */
+  const placementFrom = (c: Context<AuthEnv>, value: unknown) => {
+    const placement = parsePlacement(value)
+    if (!placement.ok) return placement
+    const section = placement.value
+    if (section.kind === 'custom' && !getOwnedSection(db, userId(c), section.sectionId)) {
+      return { ok: false as const, error: 'Section not found' }
+    }
+    return placement
+  }
+
   routes.get('/', (c) => {
     const at = now()
-    return c.json({ now: at, timers: svc.listTimers(db, userId(c), at) })
+    return c.json({
+      now: at,
+      timers: svc.listTimers(db, userId(c), at),
+      sections: listSections(db, userId(c)).map(toSectionView),
+    })
   })
 
   routes.post('/', async (c) => {
@@ -62,10 +76,24 @@ export function timerRoutes({ db, limits, now }: TimerRouteOptions): Hono<AuthEn
     const at = now()
     const startedAt = parseStartedAt(body.startedAt, at)
     if (!startedAt.ok) return invalid(c, startedAt.error)
+    let placement: Placement = { kind: 'auto' }
+    if (body.placement !== undefined) {
+      const parsed = placementFrom(c, body.placement)
+      if (!parsed.ok) return invalid(c, parsed.error)
+      placement = parsed.value
+    }
     if (svc.timerCount(db, userId(c)) >= MAX_TIMERS) {
       return invalid(c, `You can have at most ${MAX_TIMERS} timers`)
     }
-    const timer = svc.createTimer(db, userId(c), name.value, target.value, at, startedAt.value)
+    const timer = svc.createTimer(
+      db,
+      userId(c),
+      name.value,
+      target.value,
+      at,
+      startedAt.value,
+      placement,
+    )
     return c.json(svc.toTimerView(timer, svc.entriesOf(db, timer.id), at), 201)
   })
 
@@ -83,6 +111,11 @@ export function timerRoutes({ db, limits, now }: TimerRouteOptions): Hono<AuthEn
       const target = parseTarget(body.targetMs)
       if (!target.ok) return invalid(c, target.error)
       changes.targetMs = target.value
+    }
+    if ('placement' in body) {
+      const placement = placementFrom(c, body.placement)
+      if (!placement.ok) return invalid(c, placement.error)
+      changes.placement = placement.value
     }
     if (Object.keys(changes).length === 0) return invalid(c, 'Nothing to change')
     const at = now()

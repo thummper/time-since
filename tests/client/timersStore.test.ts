@@ -2,7 +2,16 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useTimersStore } from '../../src/client/stores/timers.ts'
-import { DAY, HOUR, T0, installFetch, listRoute, resetView, timerView } from './helpers.ts'
+import {
+  DAY,
+  HOUR,
+  T0,
+  installFetch,
+  listRoute,
+  resetView,
+  sectionsListRoute,
+  timerView,
+} from './helpers.ts'
 
 beforeEach(() => {
   setActivePinia(createPinia())
@@ -184,5 +193,110 @@ describe('timers store', () => {
     vi.advanceTimersByTime(3000)
     expect(store.now).toBe(T0 + HOUR + 3000)
     stop()
+  })
+
+  describe('sections', () => {
+    const house = { id: 7, name: 'House' }
+    const groupKeys = (store: ReturnType<typeof useTimersStore>) =>
+      store.grouped.map((g) => [g.key, g.timers.map((t) => t.id)])
+
+    it('keeps the sections from the list response, and clear() empties them', async () => {
+      installFetch([sectionsListRoute([house], timerView({ id: 1 }))])
+      const store = useTimersStore()
+      await store.fetchTimers()
+      expect(store.sections).toEqual([house])
+      store.clear()
+      expect(store.sections).toEqual([])
+    })
+
+    it('groups timers in section order from mixed placements', async () => {
+      installFetch([
+        sectionsListRoute(
+          [house],
+          timerView({ id: 1, targetMs: null }),
+          timerView({ id: 2, targetMs: 3 * DAY }),
+          timerView({ id: 3, placement: { kind: 'custom', sectionId: 7 } }),
+          timerView({ id: 4, targetMs: HOUR, lastReset: { id: 40, at: T0 - DAY } }),
+        ),
+      ])
+      const store = useTimersStore()
+      await store.fetchTimers()
+      expect(groupKeys(store)).toEqual([
+        ['overdue', [4]],
+        ['weekly', [2]],
+        ['custom:7', [3]],
+        ['other', [1]],
+      ])
+    })
+
+    it('moves a reset overdue timer to its home section at once (AE5)', async () => {
+      const overdue = timerView({ id: 1, targetMs: DAY, lastReset: { id: 10, at: T0 - 2 * DAY } })
+      installFetch([
+        listRoute(overdue, timerView({ id: 2, targetMs: DAY })),
+        [
+          'POST',
+          /^\/api\/timers\/1\/resets$/,
+          () => [201, { reset: resetView({ id: 11, at: T0 }) }],
+        ],
+      ])
+      const store = useTimersStore()
+      await store.fetchTimers()
+      await store.reset(1)
+      // Its section changes now; its place in the order holds until the undo toast closes.
+      expect(groupKeys(store)).toEqual([['daily', [1, 2]]])
+      store.releaseHold(1)
+      expect(groupKeys(store)).toEqual([['daily', [2, 1]]])
+    })
+
+    it('shows a timer under a new section right after create and update', async () => {
+      const moved = timerView({ id: 1, placement: { kind: 'custom', sectionId: 9 } })
+      const { count } = installFetch([
+        listRoute(timerView({ id: 1 })),
+        ['POST', /^\/api\/sections$/, () => [201, { id: 9, name: 'Car' }]],
+        ['PATCH', /^\/api\/timers\/1$/, () => [200, moved]],
+      ])
+      const store = useTimersStore()
+      await store.fetchTimers()
+      const section = await store.createSection('Car')
+      await store.updateTimer(1, { placement: { kind: 'custom', sectionId: section.id } })
+      expect(groupKeys(store)).toEqual([['custom:9', [1]]])
+      expect(count('GET', LIST)).toBe(1)
+    })
+
+    it('renames a section in place', async () => {
+      installFetch([
+        sectionsListRoute([house]),
+        ['PATCH', /^\/api\/sections\/7$/, () => [200, { id: 7, name: 'Home' }]],
+      ])
+      const store = useTimersStore()
+      await store.fetchTimers()
+      await store.renameSection(7, 'Home')
+      expect(store.sections).toEqual([{ id: 7, name: 'Home' }])
+    })
+
+    it('deletes a section, then refetches the list', async () => {
+      const { count } = installFetch([
+        sectionsListRoute([house]),
+        ['DELETE', /^\/api\/sections\/7$/, () => [204]],
+      ])
+      const store = useTimersStore()
+      await store.fetchTimers()
+      await store.deleteSection(7)
+      expect(count('DELETE', /^\/api\/sections\/7$/)).toBe(1)
+      expect(count('GET', LIST)).toBe(2)
+    })
+
+    it('sends a placement in the update body', async () => {
+      const { calls } = installFetch([
+        listRoute(timerView({ id: 1 })),
+        ['PATCH', /^\/api\/timers\/1$/, () => [200, timerView({ id: 1 })]],
+      ])
+      const store = useTimersStore()
+      await store.fetchTimers()
+      await store.updateTimer(1, { placement: { kind: 'cadence', cadence: 'weekly' } })
+      expect(calls.find((c) => c.method === 'PATCH')!.body).toEqual({
+        placement: { kind: 'cadence', cadence: 'weekly' },
+      })
+    })
   })
 })

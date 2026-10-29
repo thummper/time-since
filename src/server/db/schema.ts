@@ -1,4 +1,5 @@
 import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { CADENCES } from '../../shared/types.ts'
 
 // All times are UTC epoch milliseconds (KTD3).
 
@@ -19,6 +20,16 @@ export const sessions = sqliteTable('sessions', {
   expiresAt: integer('expires_at').notNull(),
 })
 
+/** A list section the user created (KTD3). */
+export const sections = sqliteTable('sections', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  createdAt: integer('created_at').notNull(),
+})
+
 export const timers = sqliteTable('timers', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   userId: integer('user_id')
@@ -28,6 +39,10 @@ export const timers = sqliteTable('timers', {
   targetMs: integer('target_ms'),
   /** ID of the last reset an alert went out for (KTD5). */
   alertedForResetId: integer('alerted_for_reset_id'),
+  /** A chosen cadence section. Null with `sectionId` null means automatic placement. */
+  cadence: text('cadence', { enum: CADENCES }),
+  /** A chosen custom section. Deleting the section returns the timer to automatic placement. */
+  sectionId: integer('section_id').references(() => sections.id, { onDelete: 'set null' }),
   createdAt: integer('created_at').notNull(),
 })
 
@@ -59,6 +74,7 @@ export const pushSubscriptions = sqliteTable('push_subscriptions', {
 })
 
 export type User = typeof users.$inferSelect
+export type Section = typeof sections.$inferSelect
 export type Timer = typeof timers.$inferSelect
 export type Reset = typeof resets.$inferSelect
 export type PushSubscription = typeof pushSubscriptions.$inferSelect
