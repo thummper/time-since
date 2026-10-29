@@ -3,7 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#f3f1fa" />
+    <!-- Status bar color. The colors match --bg in style.css and THEME_COLORS in src/client/theme.ts. -->
+    <meta name="theme-color" content="#f3f1fa" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#121320" media="(prefers-color-scheme: dark)" />
     <link rel="icon" href="/icons/icon-192.png" />
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
     <title>Time Since</title>
@@ -11,7 +13,13 @@
       // Apply the Settings theme before first paint. The key matches src/client/theme.ts.
       try {
         var t = localStorage.getItem('time-since:theme')
-        if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t
+        if (t === 'light' || t === 'dark') {
+          document.documentElement.dataset.theme = t
+          var c = t === 'dark' ? '#121320' : '#f3f1fa'
+          document.querySelectorAll('meta[name="theme-color"]').forEach(function (m) {
+            m.content = c
+          })
+        }
       } catch (e) {}
     </script>
   </head>

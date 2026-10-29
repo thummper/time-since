@@ -138,7 +138,7 @@ function openAdd(): void {
 
     <div
       v-if="timers.status === 'ready' && timers.timers.length > 0"
-      class="pointer-events-none fixed inset-x-0 bottom-0 flex justify-center pb-[max(1.5rem,env(safe-area-inset-bottom))]"
+      class="pointer-events-none fixed inset-x-0 bottom-[var(--toast-stack,0px)] flex justify-center pb-[max(1.5rem,env(safe-area-inset-bottom))]"
     >
       <button type="button" class="btn btn-primary btn-pill pointer-events-auto" @click="openAdd">
         <AppIcon name="plus" />
