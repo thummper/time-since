@@ -93,6 +93,7 @@ watch(slots, (count, previous) => {
       <div
         class="relative ml-auto flex h-36 items-end justify-end"
         data-testid="gap-track"
+        :data-has-selection="selected !== null ? 'true' : undefined"
         :style="{ width: trackWidth }"
       >
         <div
@@ -187,19 +188,39 @@ watch(slots, (count, previous) => {
   padding: 0 1px;
   cursor: pointer;
 }
+/* Keyboard focus stays inside the bar's own column: neighbors sit 2px away and the box clips the top. */
+.gap-slot:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  border-radius: 3px;
+}
 .gap-fill {
   display: block;
   width: 100%;
   border-radius: 2px 2px 0 0;
   background: var(--accent);
+  transition: opacity 150ms ease;
 }
 .gap-fill-current {
   background: transparent;
   box-shadow: inset 0 0 0 1.5px var(--accent);
 }
-.gap-slot[aria-pressed='true'] .gap-fill {
-  box-shadow:
-    0 0 0 2px var(--surface),
-    0 0 0 3.5px var(--accent);
+.gap-slot:hover .gap-fill {
+  opacity: 0.75;
+}
+/* A selection fades the other bars instead of drawing a ring that spills onto them. */
+[data-has-selection] .gap-slot .gap-fill {
+  opacity: 0.3;
+}
+[data-has-selection] .gap-slot[aria-pressed='true'] .gap-fill {
+  opacity: 1;
+}
+.gap-slot[aria-pressed='true'] .gap-fill-current {
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .gap-fill {
+    transition: none;
+  }
 }
 </style>

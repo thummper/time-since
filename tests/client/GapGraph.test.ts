@@ -68,6 +68,16 @@ describe('GapGraph', () => {
     expect(details.findAll('time')).toHaveLength(1)
   })
 
+  it('marks the track while a bar is selected, so the other bars can fade', async () => {
+    const wrapper = mountGraph(log([3, 5]))
+    const track = () => wrapper.find('[data-testid="gap-track"]')
+    expect(track().attributes('data-has-selection')).toBeUndefined()
+    await gapBars(wrapper)[0]!.trigger('click')
+    expect(track().attributes('data-has-selection')).toBe('true')
+    await gapBars(wrapper)[0]!.trigger('click')
+    expect(track().attributes('data-has-selection')).toBeUndefined()
+  })
+
   it('closes the details on a second tap of the same bar', async () => {
     const wrapper = mountGraph(log([3, 5]))
     await gapBars(wrapper)[0]!.trigger('click')
