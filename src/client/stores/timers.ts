@@ -225,7 +225,11 @@ export const useTimersStore = defineStore('timers', () => {
     newSection?: string
   }): Promise<Placement> {
     if (form.newSection === undefined) return form.placement
-    const section = await createSection(form.newSection)
+    // A retry after a failed timer save finds the section the first try made (same rule as the server).
+    const wanted = form.newSection.toLocaleLowerCase()
+    const section =
+      sections.value.find((s) => s.name.toLocaleLowerCase() === wanted) ??
+      (await createSection(form.newSection))
     return { kind: 'custom', sectionId: section.id }
   }
 

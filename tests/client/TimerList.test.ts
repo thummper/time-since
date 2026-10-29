@@ -466,6 +466,33 @@ describe('TimerList', () => {
       expect(count('POST', /^\/api\/timers$/)).toBe(0)
     })
 
+    it('reuses the new section when a failed save is retried', async () => {
+      let failTimer = true
+      const created = timerView({
+        id: 5,
+        name: 'Sheets',
+        placement: { kind: 'custom', sectionId: 9 },
+      })
+      const { count } = installFetch([
+        meRoute(REAL_USER),
+        listRoute(timerView({ id: 1, name: 'Plants' })),
+        ['POST', /^\/api\/sections$/, () => [201, { id: 9, name: 'Bedroom' }]],
+        ['POST', /^\/api\/timers$/, () => (failTimer ? [500, { error: 'boom' }] : [201, created])],
+      ])
+      const { wrapper } = await mountApp('/')
+      await addTimer(wrapper, async (dialog) => {
+        await dialog.find('select[name="section"]').setValue('new')
+        await dialog.find('input[name="newSection"]').setValue('bedroom')
+      })
+      expect(wrapper.find('[role="dialog"]').exists()).toBe(true)
+      failTimer = false
+      await wrapper.find('[role="dialog"] form').trigger('submit')
+      await flushPromises()
+      expect(count('POST', /^\/api\/sections$/)).toBe(1)
+      expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+      expect(wrapper.find('section[data-section="custom:9"]').text()).toContain('Sheets')
+    })
+
     it('opens a collapsed section when a new timer is saved into it (R15)', async () => {
       localStorage.setItem(COLLAPSED_KEY, JSON.stringify(['weekly']))
       const created = timerView({ id: 5, name: 'Sheets', targetMs: 3 * DAY })
