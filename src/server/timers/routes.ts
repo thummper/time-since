@@ -1,6 +1,6 @@
 import { Hono, type Context } from 'hono'
 import type { Db } from '../db/client.ts'
-import { readJson } from '../http.ts'
+import { parseId, readJson } from '../http.ts'
 import { requireUser, type AuthEnv } from '../auth/middleware.ts'
 import { limiter, type LimitSettings } from '../security/rateLimit.ts'
 import { MINUTE_MS } from '../../shared/limits.ts'
@@ -22,10 +22,6 @@ export interface TimerRouteOptions {
   db: Db
   limits: LimitSettings
   now: () => number
-}
-
-function parseId(value: string | undefined): number | null {
-  return value !== undefined && /^\d{1,15}$/.test(value) ? Number(value) : null
 }
 
 export function timerRoutes({ db, limits, now }: TimerRouteOptions): Hono<AuthEnv> {

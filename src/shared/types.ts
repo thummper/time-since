@@ -2,7 +2,10 @@ import type { Stats } from './stats.ts'
 
 export type { Stats }
 
-export type Cadence = 'daily' | 'weekly' | 'monthly' | 'other'
+/** List order of the cadence sections. */
+export const CADENCES = ['daily', 'weekly', 'monthly', 'other'] as const
+
+export type Cadence = (typeof CADENCES)[number]
 
 /** Where a timer lives on the list: from its target, a chosen cadence, or a custom section. */
 export type Placement =

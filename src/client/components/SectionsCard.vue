@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { NAME_MAX } from '../../shared/limits.ts'
+import { compareSections } from '../../shared/sections.ts'
 import type { SectionView } from '../../shared/types.ts'
 import { errorMessage } from '../api/client.ts'
 import { useTimersStore } from '../stores/timers.ts'
@@ -8,11 +9,7 @@ import ConfirmDialog from './ConfirmDialog.vue'
 
 const timers = useTimersStore()
 
-const sorted = computed(() =>
-  [...timers.sections].sort((a, b) =>
-    a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
-  ),
-)
+const sorted = computed(() => [...timers.sections].sort(compareSections))
 
 /** The section being renamed, with the draft name. */
 const editingId = ref<number | null>(null)
@@ -24,7 +21,7 @@ const deleteError = ref<string | null>(null)
 
 // KTD6: sections arrive with the timers list, so load it when Settings opens first.
 onMounted(() => {
-  if (timers.status !== 'ready') void timers.fetchTimers()
+  if (timers.status === 'idle' || timers.status === 'error') void timers.fetchTimers()
 })
 
 function startRename(section: SectionView): void {

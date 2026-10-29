@@ -11,3 +11,8 @@ export async function readJson(c: Context): Promise<Record<string, unknown>> {
     return {}
   }
 }
+
+/** A route id: 1 to 15 digits. Anything else is null. */
+export function parseId(value: string | undefined): number | null {
+  return value !== undefined && /^\d{1,15}$/.test(value) ? Number(value) : null
+}

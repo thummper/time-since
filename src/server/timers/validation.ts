@@ -1,5 +1,6 @@
 import { MINUTE_MS, NAME_MAX, NOTE_MAX, TARGET_MAX_MS, TARGET_MIN_MS } from '../../shared/limits.ts'
-import type { Cadence, Placement } from '../../shared/types.ts'
+import { isCadence } from '../../shared/sections.ts'
+import type { Placement } from '../../shared/types.ts'
 
 export const FUTURE_TOLERANCE_MS = MINUTE_MS
 export const MAX_TIMERS = 50
@@ -54,8 +55,6 @@ export const parseResetAt = (value: unknown, now: number) => parsePastTime(value
 export const parseStartedAt = (value: unknown, now: number) =>
   parsePastTime(value, now, 'Start time')
 
-const CADENCE_VALUES: readonly Cadence[] = ['daily', 'weekly', 'monthly', 'other']
-
 /** Checks the placement shape only. The route checks that a custom section belongs to the user. */
 export function parsePlacement(value: unknown): Parsed<Placement> {
   const invalid = fail('Section is not valid')
@@ -63,8 +62,7 @@ export function parsePlacement(value: unknown): Parsed<Placement> {
   const raw = value as Record<string, unknown>
   if (raw.kind === 'auto') return ok({ kind: 'auto' })
   if (raw.kind === 'cadence') {
-    const cadence = CADENCE_VALUES.find((c) => c === raw.cadence)
-    return cadence ? ok({ kind: 'cadence', cadence }) : invalid
+    return isCadence(raw.cadence) ? ok({ kind: 'cadence', cadence: raw.cadence }) : invalid
   }
   if (raw.kind === 'custom') {
     const id = raw.sectionId

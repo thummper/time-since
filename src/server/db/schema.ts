@@ -1,4 +1,5 @@
 import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { CADENCES } from '../../shared/types.ts'
 
 // All times are UTC epoch milliseconds (KTD3).
 
@@ -39,7 +40,7 @@ export const timers = sqliteTable('timers', {
   /** ID of the last reset an alert went out for (KTD5). */
   alertedForResetId: integer('alerted_for_reset_id'),
   /** A chosen cadence section. Null with `sectionId` null means automatic placement. */
-  cadence: text('cadence', { enum: ['daily', 'weekly', 'monthly', 'other'] }),
+  cadence: text('cadence', { enum: CADENCES }),
   /** A chosen custom section. Deleting the section returns the timer to automatic placement. */
   sectionId: integer('section_id').references(() => sections.id, { onDelete: 'set null' }),
   createdAt: integer('created_at').notNull(),

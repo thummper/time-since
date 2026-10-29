@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { toLocalInput } from '../../shared/format.ts'
 import { DAY_MS, HOUR_MS, NAME_MAX, TARGET_MAX_MS, TARGET_MIN_MS } from '../../shared/limits.ts'
-import { CADENCES, CADENCE_LABELS } from '../../shared/sections.ts'
+import { CADENCES, CADENCE_LABELS, compareSections, isCadence } from '../../shared/sections.ts'
 import type { Placement, SectionView } from '../../shared/types.ts'
 
 type Unit = 'days' | 'hours'
@@ -52,7 +52,7 @@ function placementValue(placement: Placement | undefined): string {
 
 function placementFrom(value: string): Placement {
   const [kind, rest] = value.split(':')
-  if (kind === 'cadence') return { kind: 'cadence', cadence: CADENCES.find((c) => c === rest)! }
+  if (kind === 'cadence' && isCadence(rest)) return { kind: 'cadence', cadence: rest }
   if (kind === 'custom') return { kind: 'custom', sectionId: Number(rest) }
   return { kind: 'auto' }
 }
@@ -70,11 +70,7 @@ const unit = ref<Unit>(start.unit)
 const maxStart = toLocalInput(Date.now())
 const started = ref(maxStart)
 const section = ref(placementValue(props.initial.placement))
-const sortedSections = computed(() =>
-  [...props.sections].sort((a, b) =>
-    a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
-  ),
-)
+const sortedSections = computed(() => [...props.sections].sort(compareSections))
 const newSection = ref('')
 const problem = ref<string | null>(null)
 

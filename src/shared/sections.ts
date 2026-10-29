@@ -1,11 +1,13 @@
 import { DAY_MS } from './limits.ts'
 import { isPastTarget } from './overdue.ts'
-import type { Cadence, Placement, SectionView } from './types.ts'
+import { CADENCES, type Cadence, type Placement, type SectionView } from './types.ts'
 
 /** A list section: overdue, a cadence, or a custom section by id. */
 export type SectionKey = 'overdue' | Cadence | `custom:${number}`
 
-export const CADENCES: readonly Cadence[] = ['daily', 'weekly', 'monthly', 'other']
+export { CADENCES }
+
+export const isCadence = (value: unknown): value is Cadence => CADENCES.some((c) => c === value)
 
 export const CADENCE_LABELS: Record<Cadence, string> = {
   daily: 'Daily',
@@ -55,14 +57,23 @@ function idsOf(sections: readonly SectionView[]): Set<number> {
   return new Set(sections.map((s) => s.id))
 }
 
+function liveKey(timer: GroupableTimer, sectionIds: ReadonlySet<number>, now: number): SectionKey {
+  if (isPastTarget(timer.targetMs, timer.lastReset.at, now)) return 'overdue'
+  return homeKey(timer, sectionIds)
+}
+
 /** KTD1: the one rule for which section a timer shows in. */
 export function sectionKeyOf(
   timer: GroupableTimer,
   sections: readonly SectionView[],
   now: number,
 ): SectionKey {
-  if (isPastTarget(timer.targetMs, timer.lastReset.at, now)) return 'overdue'
-  return homeKey(timer, idsOf(sections))
+  return liveKey(timer, idsOf(sections), now)
+}
+
+/** Custom sections A to Z, ignoring case; the id breaks a tie. */
+export function compareSections(a: SectionView, b: SectionView): number {
+  return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }) || a.id - b.id
 }
 
 /**
@@ -76,9 +87,7 @@ export function groupTimers<T extends GroupableTimer>(
   frozen?: ReadonlyMap<number, SectionKey>,
 ): SectionGroup<T>[] {
   const ids = idsOf(sections)
-  const custom = [...sections].sort(
-    (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }) || a.id - b.id,
-  )
+  const custom = [...sections].sort(compareSections)
   const groups: SectionGroup<T>[] = [
     { key: 'overdue', name: OVERDUE_LABEL, collapsible: false, timers: [] },
     ...(['daily', 'weekly', 'monthly'] as const).map((c) => group<T>(c, CADENCE_LABELS[c])),
@@ -88,12 +97,7 @@ export function groupTimers<T extends GroupableTimer>(
   const byKey = new Map(groups.map((g) => [g.key, g]))
   for (const timer of timers) {
     const held = frozen?.get(timer.id)
-    const key =
-      held && byKey.has(held)
-        ? held
-        : isPastTarget(timer.targetMs, timer.lastReset.at, now)
-          ? 'overdue'
-          : homeKey(timer, ids)
+    const key = held && byKey.has(held) ? held : liveKey(timer, ids, now)
     byKey.get(key)!.timers.push(timer)
   }
   return groups.filter((g) => g.timers.length > 0)
