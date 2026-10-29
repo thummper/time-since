@@ -222,6 +222,20 @@ a {
     --tone-bg: var(--tone-3-bg);
     --tone-ink: var(--tone-3-ink);
   }
+  /* The card's goal bar: solid ink, the overdue color past a target, calm stripes past the average. */
+  .goal-fill {
+    background: var(--tone-ink);
+  }
+  [data-goal-state='past-target'] > .goal-fill {
+    background: var(--danger);
+  }
+  [data-goal-state='past-average'] > .goal-fill {
+    background: repeating-linear-gradient(
+      -45deg,
+      var(--tone-ink) 0 3px,
+      color-mix(in srgb, var(--tone-ink) 45%, transparent) 3px 6px
+    );
+  }
   .notice-error {
     border-radius: 0.625rem;
     background: var(--danger-soft);

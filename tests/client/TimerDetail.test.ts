@@ -33,6 +33,44 @@ describe('TimerDetail', () => {
     expect(rows[2]!.text()).toContain('(created)')
   })
 
+  it('shows the gap graph with one bar per finished gap plus the current run', async () => {
+    installFetch([meRoute(REAL_USER), listRoute(timer), resetsRoute])
+    const { wrapper } = await mountApp('/timers/1')
+    const graph = wrapper.find('[data-testid="gap-graph"]')
+    expect(graph.findAll('[data-testid="gap-bar"]')).toHaveLength(2)
+    expect(graph.findAll('[data-testid="current-bar"]')).toHaveLength(1)
+    expect(graph.find('[data-testid="goal-key"]').text()).toContain('average')
+  })
+
+  it('updates the gap graph after a log entry is deleted', async () => {
+    let current = entries
+    installFetch([
+      meRoute(REAL_USER),
+      listRoute(timer),
+      ['GET', /^\/api\/timers\/1\/resets$/, () => [200, { resets: current }]],
+      [
+        'DELETE',
+        /^\/api\/timers\/1\/resets\/11$/,
+        () => {
+          current = entries.filter((e) => e.id !== 11)
+          return [204]
+        },
+      ],
+    ])
+    const { wrapper } = await mountApp('/timers/1')
+    await wrapper
+      .findAll('[data-testid="log-entry"]')[1]!
+      .find('button[aria-label^="Delete entry"]')
+      .trigger('click')
+    await wrapper
+      .find('[role="dialog"]')
+      .findAll('button')
+      .find((b) => b.text() === 'Delete entry')!
+      .trigger('click')
+    await flushPromises()
+    expect(wrapper.findAll('[data-testid="gap-bar"]')).toHaveLength(1)
+  })
+
   it('hides the delete action for the origin entry', async () => {
     installFetch([meRoute(REAL_USER), listRoute(timer), resetsRoute])
     const { wrapper } = await mountApp('/timers/1')

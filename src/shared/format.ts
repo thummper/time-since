@@ -9,6 +9,13 @@ export function formatElapsed(ms: number): string {
   return `${Math.floor(total / HOUR_MS)}h ${Math.floor((total % HOUR_MS) / MINUTE_MS)}m`
 }
 
+const WHEN_FORMAT = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+
+/** A log time as a medium date and short time in the viewer's locale. */
+export function formatWhen(ms: number): string {
+  return WHEN_FORMAT.format(ms)
+}
+
 const pad = (n: number) => String(n).padStart(2, '0')
 
 export interface ElapsedPart {
