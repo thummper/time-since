@@ -31,6 +31,52 @@ describe('TimerCard', () => {
     expect(mountCard({ timer, now: T0 }).text()).toContain('Due in 13d 0h')
   })
 
+  it('Covers AE1. shows the time left to the average gap without a target', () => {
+    const timer = timerView({
+      id: 1,
+      lastReset: { id: 10, at: T0 - 2 * DAY },
+      stats: { averageGapMs: 4 * DAY, longestGapMs: 5 * DAY, resetCount: 3 },
+    })
+    const wrapper = mountCard({ timer, now: T0 })
+    expect(wrapper.text()).toContain('2d 0h to average')
+    const bar = wrapper.find('[role="progressbar"]')
+    expect(bar.attributes('aria-valuenow')).toBe('50')
+    expect(bar.attributes('aria-label')).toBe('Progress to average')
+    expect(bar.attributes('data-goal-state')).toBe('before')
+  })
+
+  it('Covers AE2. fills the bar in the overdue color past the target', () => {
+    const timer = timerView({
+      id: 1,
+      targetMs: 14 * DAY,
+      lastReset: { id: 10, at: T0 - 17 * DAY },
+      stats: { averageGapMs: 4 * DAY, longestGapMs: 5 * DAY, resetCount: 3 },
+    })
+    const wrapper = mountCard({ timer, now: T0 })
+    expect(wrapper.text()).toContain('Overdue by 3d 0h')
+    expect(wrapper.find('[data-overdue="true"]').exists()).toBe(true)
+    const bar = wrapper.find('[role="progressbar"]')
+    expect(bar.attributes('aria-label')).toBe('Progress to target')
+    expect(bar.attributes('data-goal-state')).toBe('past-target')
+  })
+
+  it('Covers AE3. marks a run past the average calmly, without overdue', () => {
+    const timer = timerView({
+      id: 1,
+      lastReset: { id: 10, at: T0 - 6 * DAY },
+      stats: { averageGapMs: 4 * DAY, longestGapMs: 5 * DAY, resetCount: 3 },
+    })
+    const wrapper = mountCard({ timer, now: T0 })
+    expect(wrapper.text()).toContain('2d 0h past average')
+    expect(wrapper.find('[data-overdue]').exists()).toBe(false)
+    expect(wrapper.find('[role="progressbar"]').attributes('data-goal-state')).toBe('past-average')
+  })
+
+  it('Covers AE4. shows no bar without a target or a finished gap', () => {
+    const wrapper = mountCard({ timer: timerView({ id: 1 }), now: T0 })
+    expect(wrapper.find('[role="progressbar"]').exists()).toBe(false)
+  })
+
   it('shows a Reset state while held', () => {
     const timer = timerView({ id: 1 })
     const wrapper = mountCard({ timer, now: T0, held: true })

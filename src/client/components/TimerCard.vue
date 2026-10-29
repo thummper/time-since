@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount } from 'vue'
 import { elapsedParts, formatElapsed } from '../../shared/format.ts'
+import { goalProgress, resolveGoal } from '../../shared/gaps.ts'
 import { isPastTarget, overdueByMs } from '../../shared/overdue.ts'
 import type { TimerView } from '../../shared/types.ts'
 import AppIcon from './AppIcon.vue'
@@ -31,14 +32,10 @@ const parts = computed(() => elapsedParts(elapsedMs.value))
 /** Each timer keeps one pastel tone, picked from its id. */
 const tone = computed(() => `tone-${props.timer.id % TONES}`)
 const monogram = computed(() => props.timer.name.trim().charAt(0).toUpperCase() || '?')
-const progress = computed(() => {
-  const target = props.timer.targetMs
-  if (target === null || target <= 0) return 0
-  return Math.min(100, Math.max(0, (elapsedMs.value / target) * 100))
-})
-const dueInMs = computed(() =>
-  props.timer.targetMs === null ? 0 : props.timer.targetMs - elapsedMs.value,
-)
+/** R2: the target, or the average gap without one. */
+const goal = computed(() => resolveGoal(props.timer.targetMs, props.timer.stats.averageGapMs))
+const progress = computed(() => (goal.value ? goalProgress(elapsedMs.value, goal.value) : null))
+const goalState = computed(() => (progress.value?.past ? `past-${goal.value!.kind}` : 'before'))
 
 let pressTimer: ReturnType<typeof setTimeout> | undefined
 let longPressed = false
@@ -137,26 +134,33 @@ onBeforeUnmount(() => clearTimeout(pressTimer))
         </button>
       </div>
 
-      <div v-if="timer.targetMs !== null" class="flex items-center gap-2 text-xs font-medium">
+      <div v-if="goal && progress" class="flex items-center gap-2 text-xs font-medium">
         <div
           class="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--tone-track)]"
           role="progressbar"
-          aria-label="Progress to target"
-          :aria-valuenow="Math.round(progress)"
+          :aria-label="`Progress to ${goal.kind}`"
+          :aria-valuenow="Math.round(progress.percent)"
           aria-valuemin="0"
           aria-valuemax="100"
+          :data-goal-state="goalState"
         >
-          <div
-            class="h-full rounded-full bg-[var(--tone-ink)]"
-            :style="{ width: `${progress}%` }"
-          />
+          <div class="goal-fill h-full rounded-full" :style="{ width: `${progress.percent}%` }" />
         </div>
-        <span v-if="overdue" class="font-semibold">Overdue by {{ formatElapsed(overdueMs) }}</span>
-        <span v-else class="opacity-80" :title="`Target ${formatElapsed(timer.targetMs)}`"
-          >Due in {{ formatElapsed(dueInMs) }}</span
-        >
+        <template v-if="goal.kind === 'target'">
+          <span v-if="overdue" class="font-semibold"
+            >Overdue by {{ formatElapsed(overdueMs) }}</span
+          >
+          <span v-else class="opacity-80" :title="`Target ${formatElapsed(goal.ms)}`"
+            >Due in {{ formatElapsed(progress.remainingMs) }}</span
+          >
+        </template>
+        <span v-else class="opacity-80" :title="`Average gap ${formatElapsed(goal.ms)}`">
+          <template v-if="progress.past"
+            >{{ formatElapsed(-progress.remainingMs) }} past average</template
+          >
+          <template v-else>{{ formatElapsed(progress.remainingMs) }} to average</template>
+        </span>
       </div>
-
     </div>
     <div
       v-if="error"
