@@ -53,8 +53,9 @@ The DNS for `thummper.net` must be on Cloudflare.
    ```bash
    sudo mkdir -p /docker/time-since && sudo chown 1000:1000 /docker/time-since
    ```
-2. In Portainer, go to Stacks, Add stack, Repository. Use this repository and `docker-compose.yml`.
-3. Add these environment variables:
+2. In Portainer, go to Registries and add GitHub Container Registry (`ghcr.io`). Use your GitHub username and a personal access token with the `read:packages` scope. Skip this step if the `time-since` package on GitHub is public.
+3. In Portainer, go to Stacks, Add stack, Repository. Use this repository and `docker-compose.yml`.
+4. Add these environment variables:
 
 | Variable            | Value                                                        |
 | ------------------- | ------------------------------------------------------------ |
@@ -64,16 +65,24 @@ The DNS for `thummper.net` must be on Cloudflare.
 | `VAPID_PRIVATE_KEY` | from step 1                                                  |
 | `VAPID_SUBJECT`     | `mailto:you@example.com`                                     |
 | `DATA_DIR`          | optional, host folder for the database (default `/docker/time-since`) |
+| `IMAGE_TAG`         | optional, image tag to run (default `latest`)                |
 
-4. Deploy the stack. Portainer builds the image from the Dockerfile.
-5. Open the public hostname. Check `https://<host>/api/health` returns `{"ok":true}`.
-6. On the Android phone, open the site in Chrome, install it, and enable alerts in Settings.
+5. Deploy the stack. Portainer pulls `ghcr.io/thummper/time-since`. The CI workflow must have run on `main` at least once, so the image exists.
+6. Open the public hostname. Check `https://<host>/api/health` returns `{"ok":true}`.
+7. On the Android phone, open the site in Chrome, install it, and enable alerts in Settings.
 
 For a LAN test without the tunnel, uncomment `ports` in `docker-compose.yml` and set `PUBLIC_ORIGIN` to the LAN URL. Push needs https, so alerts only work through the tunnel.
 
 ### Update
 
-Pull the latest code and redeploy: in Portainer, open the stack, enable "Re-pull image and redeploy" or use the repository "Pull and redeploy" option, with rebuild on. Migrations run at start.
+The CI workflow (`.github/workflows/ci.yml`) runs lint, typecheck, and tests on every push and pull request. On `main`, it then pushes the image to GHCR with the tags `latest` and `sha-<commit>`. Migrations run at start.
+
+Pick one way for Portainer to deploy the new image:
+
+- **Webhook:** in the stack settings, turn on the webhook and copy its URL. In GitHub, add it as the repository secret `PORTAINER_WEBHOOK`. CI calls it after the push. GitHub must reach the URL, so Portainer must be public (for example through a second tunnel hostname).
+- **Polling:** in the stack settings, turn on GitOps updates with polling and "Re-pull image". Portainer then redeploys when `main` changes. It needs no public URL, but it can pull before CI finishes. In that case, the next poll or a manual "Pull and redeploy" picks up the new image.
+
+To roll back, set `IMAGE_TAG` to an older `sha-<commit>` tag and redeploy.
 
 ### Backups and restore
 
