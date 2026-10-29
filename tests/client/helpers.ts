@@ -1,5 +1,5 @@
 import { vi } from 'vitest'
-import type { ResetView, TimerView } from '../../src/shared/types.ts'
+import type { ResetView, SectionView, TimerView } from '../../src/shared/types.ts'
 
 export const MINUTE = 60_000
 export const HOUR = 60 * MINUTE
@@ -13,6 +13,7 @@ export function timerView(overrides: Partial<TimerView> & { id: number }): Timer
     createdAt: T0 - 30 * DAY,
     lastReset: { id: overrides.id * 10, at: T0 - DAY },
     overdue: false,
+    placement: { kind: 'auto' },
     stats: { averageGapMs: null, longestGapMs: null, resetCount: 0 },
     ...overrides,
   }
@@ -34,7 +35,12 @@ export interface Call {
 
 /** The route for `GET /api/timers`. */
 export function listRoute(...timers: TimerView[]): Route {
-  return ['GET', /^\/api\/timers$/, () => [200, { now: T0, timers }]]
+  return sectionsListRoute([], ...timers)
+}
+
+/** Like `listRoute`, with custom sections in the response. */
+export function sectionsListRoute(sections: SectionView[], ...timers: TimerView[]): Route {
+  return ['GET', /^\/api\/timers$/, () => [200, { now: T0, timers, sections }]]
 }
 
 /** Replaces `fetch` with a router over `routes`. Unmatched requests answer 500. */
