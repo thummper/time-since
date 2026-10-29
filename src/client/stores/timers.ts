@@ -3,13 +3,7 @@ import { computed, ref } from 'vue'
 import { isPastTarget } from '../../shared/overdue.ts'
 import { groupTimers, sectionKeyOf, type SectionKey } from '../../shared/sections.ts'
 import { lastReset } from '../../shared/stats.ts'
-import type {
-  Placement,
-  ResetView,
-  SectionView,
-  TimerList,
-  TimerView,
-} from '../../shared/types.ts'
+import type { Placement, ResetView, SectionView, TimerList, TimerView } from '../../shared/types.ts'
 import { api, ApiError, errorMessage } from '../api/client.ts'
 import { onAppFocus } from './focus.ts'
 

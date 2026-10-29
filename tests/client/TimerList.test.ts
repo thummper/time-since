@@ -1,7 +1,18 @@
 // @vitest-environment jsdom
 import { flushPromises } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { DAY, T0, installFetch, listRoute, resetView, tapReset, timerView } from './helpers.ts'
+import {
+  DAY,
+  HOUR,
+  T0,
+  installFetch,
+  listRoute,
+  resetView,
+  sectionsListRoute,
+  tapReset,
+  timerView,
+} from './helpers.ts'
+import { COLLAPSED_KEY } from '../../src/client/collapsed.ts'
 import { meRoute, mountApp, REAL_USER } from './mountApp.ts'
 
 beforeEach(() => {
@@ -14,6 +25,7 @@ afterEach(() => {
   vi.useRealTimers()
   vi.unstubAllGlobals()
   document.body.innerHTML = ''
+  localStorage.clear()
 })
 
 const cardNames = (wrapper: Awaited<ReturnType<typeof mountApp>>['wrapper']) =>
@@ -182,11 +194,7 @@ describe('TimerList', () => {
     const { count } = installFetch([
       meRoute(REAL_USER),
       listRoute(timerView({ id: 1, name: 'A' }), timerView({ id: 2, name: 'B' })),
-      [
-        'POST',
-        /^\/api\/timers\/1\/resets$/,
-        () => [201, { reset: resetView({ id: 99, at: T0 }) }],
-      ],
+      ['POST', /^\/api\/timers\/1\/resets$/, () => [201, { reset: resetView({ id: 99, at: T0 }) }]],
       ['DELETE', /^\/api\/timers\/1\/resets\/99$/, () => [204, null]],
     ])
     const { wrapper } = await mountApp('/')
@@ -281,5 +289,121 @@ describe('TimerList', () => {
     expect(wrapper.find('[role="dialog"] [role="alert"]').text()).toBe(
       'You can have at most 50 timers',
     )
+  })
+
+  describe('sections', () => {
+    const headers = (wrapper: Awaited<ReturnType<typeof mountApp>>['wrapper']) =>
+      wrapper.findAll('section[data-section]').map((s) => ({
+        key: s.attributes('data-section'),
+        count: s.find('[data-testid="section-count"]').text(),
+      }))
+    const toggle = (wrapper: Awaited<ReturnType<typeof mountApp>>['wrapper'], key: string) =>
+      wrapper.find(`section[data-section="${key}"] button[aria-expanded]`).trigger('click')
+
+    it('shows a header with a count for each non-empty section (AE6)', async () => {
+      installFetch([
+        meRoute(REAL_USER),
+        listRoute(
+          timerView({ id: 1, name: 'Plants', targetMs: DAY }),
+          timerView({ id: 2, name: 'Sheets', targetMs: 3 * DAY }),
+          timerView({ id: 3, name: 'Towels', targetMs: 3 * DAY }),
+        ),
+      ])
+      const { wrapper } = await mountApp('/')
+      expect(headers(wrapper)).toEqual([
+        { key: 'daily', count: '1' },
+        { key: 'weekly', count: '2' },
+      ])
+      expect(wrapper.text()).not.toContain('Monthly+')
+    })
+
+    it('puts a custom section between Monthly+ and Other, by name', async () => {
+      installFetch([
+        meRoute(REAL_USER),
+        sectionsListRoute(
+          [{ id: 7, name: 'House' }],
+          timerView({ id: 1, name: 'Car', targetMs: 30 * DAY }),
+          timerView({ id: 2, name: 'Vacuum', placement: { kind: 'custom', sectionId: 7 } }),
+          timerView({ id: 3, name: 'Dentist' }),
+        ),
+      ])
+      const { wrapper } = await mountApp('/')
+      expect(headers(wrapper).map((h) => h.key)).toEqual(['monthly', 'custom:7', 'other'])
+      expect(wrapper.find('section[data-section="custom:7"] h2').text()).toContain('House')
+    })
+
+    it('shows an overdue Weekly timer under the open Overdue header while Weekly is collapsed (AE4)', async () => {
+      localStorage.setItem(COLLAPSED_KEY, JSON.stringify(['weekly']))
+      installFetch([
+        meRoute(REAL_USER),
+        listRoute(
+          timerView({
+            id: 1,
+            name: 'Sheets',
+            targetMs: 3 * DAY,
+            lastReset: { id: 10, at: T0 - 4 * DAY },
+          }),
+          timerView({ id: 2, name: 'Towels', targetMs: 3 * DAY }),
+        ),
+      ])
+      const { wrapper } = await mountApp('/')
+      expect(headers(wrapper).map((h) => h.key)).toEqual(['overdue', 'weekly'])
+      expect(cardNames(wrapper)).toEqual(['Sheets'])
+      const overdue = wrapper.find('section[data-section="overdue"]')
+      expect(overdue.find('button[aria-expanded]').exists()).toBe(false)
+    })
+
+    it('collapses a section, and the state survives a remount', async () => {
+      installFetch([
+        meRoute(REAL_USER),
+        listRoute(timerView({ id: 1, name: 'Plants', targetMs: DAY })),
+      ])
+      const first = await mountApp('/')
+      await toggle(first.wrapper, 'daily')
+      expect(cardNames(first.wrapper)).toEqual([])
+      expect(
+        first.wrapper.find('section[data-section="daily"] button').attributes('aria-expanded'),
+      ).toBe('false')
+      first.wrapper.unmount()
+      const second = await mountApp('/')
+      expect(cardNames(second.wrapper)).toEqual([])
+      await toggle(second.wrapper, 'daily')
+      expect(cardNames(second.wrapper)).toEqual(['Plants'])
+    })
+
+    it('renders every section open when storage throws', async () => {
+      vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+        throw new Error('blocked')
+      })
+      installFetch([
+        meRoute(REAL_USER),
+        listRoute(timerView({ id: 1, name: 'Plants', targetMs: DAY })),
+      ])
+      const { wrapper } = await mountApp('/')
+      expect(cardNames(wrapper)).toEqual(['Plants'])
+      vi.restoreAllMocks()
+    })
+
+    it('lists the oldest last reset first inside a section', async () => {
+      installFetch([
+        meRoute(REAL_USER),
+        listRoute(
+          timerView({
+            id: 1,
+            name: 'Recent',
+            targetMs: 7 * DAY,
+            lastReset: { id: 10, at: T0 - HOUR },
+          }),
+          timerView({
+            id: 2,
+            name: 'Older',
+            targetMs: 7 * DAY,
+            lastReset: { id: 20, at: T0 - 3 * DAY },
+          }),
+        ),
+      ])
+      const { wrapper } = await mountApp('/')
+      expect(cardNames(wrapper)).toEqual(['Older', 'Recent'])
+    })
   })
 })

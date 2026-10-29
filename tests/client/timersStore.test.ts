@@ -233,7 +233,11 @@ describe('timers store', () => {
       const overdue = timerView({ id: 1, targetMs: DAY, lastReset: { id: 10, at: T0 - 2 * DAY } })
       installFetch([
         listRoute(overdue, timerView({ id: 2, targetMs: DAY })),
-        ['POST', /^\/api\/timers\/1\/resets$/, () => [201, { reset: resetView({ id: 11, at: T0 }) }]],
+        [
+          'POST',
+          /^\/api\/timers\/1\/resets$/,
+          () => [201, { reset: resetView({ id: 11, at: T0 }) }],
+        ],
       ])
       const store = useTimersStore()
       await store.fetchTimers()

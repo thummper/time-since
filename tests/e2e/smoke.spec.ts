@@ -15,6 +15,7 @@ test('welcome, sign up, timer, reset, undo, demo', async ({ page }) => {
   await page.getByLabel('Name').fill('Water plants')
   await page.getByRole('dialog').getByRole('button', { name: 'Add timer' }).click()
   await expect(page.getByRole('link', { name: 'Water plants' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /^Other/ })).toBeVisible()
 
   await page.getByRole('button', { name: 'Reset Water plants' }).click()
   await expect(page.getByTestId('reset-state')).toBeVisible()

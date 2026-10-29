@@ -6,9 +6,7 @@ export type Cadence = 'daily' | 'weekly' | 'monthly' | 'other'
 
 /** Where a timer lives on the list: from its target, a chosen cadence, or a custom section. */
 export type Placement =
-  | { kind: 'auto' }
-  | { kind: 'cadence'; cadence: Cadence }
-  | { kind: 'custom'; sectionId: number }
+  { kind: 'auto' } | { kind: 'cadence'; cadence: Cadence } | { kind: 'custom'; sectionId: number }
 
 /** A section the user created. */
 export interface SectionView {

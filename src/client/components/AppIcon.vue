@@ -1,5 +1,5 @@
 <script setup lang="ts">
-type IconName = 'alert' | 'dots' | 'gear' | 'plus' | 'reset' | 'back'
+type IconName = 'alert' | 'dots' | 'gear' | 'plus' | 'reset' | 'back' | 'chevron'
 
 defineProps<{ name: IconName }>()
 
@@ -10,6 +10,7 @@ const paths: Record<IconName, string> = {
   plus: 'M12 5v14M5 12h14',
   reset: 'M4 12a8 8 0 1 0 2.5-5.8M4 4v5h5',
   back: 'M15 5l-7 7 7 7',
+  chevron: 'M6 9l6 6 6-6',
 }
 </script>
 

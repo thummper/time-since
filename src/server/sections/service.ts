@@ -9,12 +9,7 @@ export const MAX_SECTIONS = 20
 export const toSectionView = (row: Section): SectionView => ({ id: row.id, name: row.name })
 
 export const listSections = (db: Db, userId: number): Section[] =>
-  db
-    .select()
-    .from(sections)
-    .where(eq(sections.userId, userId))
-    .orderBy(asc(sections.id))
-    .all()
+  db.select().from(sections).where(eq(sections.userId, userId)).orderBy(asc(sections.id)).all()
 
 export const sectionCount = (db: Db, userId: number): number =>
   db.select({ n: count() }).from(sections).where(eq(sections.userId, userId)).get()!.n
