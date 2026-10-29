@@ -1,8 +1,15 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { isPastTarget } from '../../shared/overdue.ts'
+import { groupTimers, sectionKeyOf, type SectionKey } from '../../shared/sections.ts'
 import { lastReset } from '../../shared/stats.ts'
-import type { ResetView, TimerList, TimerView } from '../../shared/types.ts'
+import type {
+  Placement,
+  ResetView,
+  SectionView,
+  TimerList,
+  TimerView,
+} from '../../shared/types.ts'
 import { api, ApiError, errorMessage } from '../api/client.ts'
 import { onAppFocus } from './focus.ts'
 
@@ -11,6 +18,7 @@ export type LoadStatus = 'idle' | 'loading' | 'ready' | 'error'
 export interface TimerChanges {
   name?: string
   targetMs?: number | null
+  placement?: Placement
 }
 
 export interface ResetInput {
@@ -32,6 +40,8 @@ function without<T>(record: Record<number, T>, key: number): Record<number, T> {
 
 export const useTimersStore = defineStore('timers', () => {
   const timers = ref<TimerView[]>([])
+  /** The user's custom sections, from the list response (KTD6). */
+  const sections = ref<SectionView[]>([])
   const status = ref<LoadStatus>('idle')
   const loadError = ref<string | null>(null)
   /** Inline error per timer id, for a failed reset. */
@@ -47,6 +57,8 @@ export const useTimersStore = defineStore('timers', () => {
   /** Timers whose list position is held after a reset, with the number of open holds. */
   const holds = ref<Record<number, number>>({})
   const frozenOrder = ref<number[] | null>(null)
+  /** KTD8: each timer's section while the order is frozen. */
+  const frozenSections = ref<Map<number, SectionKey> | null>(null)
 
   /** Timers with a reset request in flight. */
   const resetting = ref<Record<number, true>>({})
@@ -80,6 +92,11 @@ export const useTimersStore = defineStore('timers', () => {
     return list.sort((a, b) => (position.get(a.id) ?? Infinity) - (position.get(b.id) ?? Infinity))
   })
 
+  /** Section groups in list order (R10), holding sections while a reset is held (KTD8). */
+  const grouped = computed(() =>
+    groupTimers(sorted.value, sections.value, now.value, frozenSections.value ?? undefined),
+  )
+
   function byId(id: number): TimerView | undefined {
     return timers.value.find((t) => t.id === id)
   }
@@ -89,7 +106,12 @@ export const useTimersStore = defineStore('timers', () => {
   }
 
   function hold(id: number): void {
-    if (!frozenOrder.value) frozenOrder.value = sorted.value.map((t) => t.id)
+    if (!frozenOrder.value) {
+      frozenOrder.value = sorted.value.map((t) => t.id)
+      frozenSections.value = new Map(
+        timers.value.map((t) => [t.id, sectionKeyOf(t, sections.value, now.value)]),
+      )
+    }
     holds.value = { ...holds.value, [id]: (holds.value[id] ?? 0) + 1 }
   }
 
@@ -99,12 +121,17 @@ export const useTimersStore = defineStore('timers', () => {
     if (open > 0) next[id] = open
     else delete next[id]
     holds.value = next
-    if (Object.keys(next).length === 0) frozenOrder.value = null
+    if (Object.keys(next).length === 0) unfreeze()
   }
 
   function releaseAllHolds(): void {
     holds.value = {}
+    unfreeze()
+  }
+
+  function unfreeze(): void {
     frozenOrder.value = null
+    frozenSections.value = null
   }
 
   function removeTimer(id: number): void {
@@ -131,6 +158,7 @@ export const useTimersStore = defineStore('timers', () => {
   function clear(): void {
     latestFetch++
     timers.value = []
+    sections.value = []
     status.value = 'idle'
     loadError.value = null
     rowErrors.value = {}
@@ -146,6 +174,7 @@ export const useTimersStore = defineStore('timers', () => {
       // A newer request is in flight, so this answer may already be stale.
       if (seq !== latestFetch) return
       timers.value = data.timers
+      sections.value = data.sections ?? []
       offset.value = data.now - Date.now()
       tick()
       status.value = 'ready'
@@ -169,8 +198,9 @@ export const useTimersStore = defineStore('timers', () => {
     name: string,
     targetMs: number | null,
     startedAt?: number,
+    placement?: Placement,
   ): Promise<TimerView> {
-    const timer = await api.post<TimerView>('/api/timers', { name, targetMs, startedAt })
+    const timer = await api.post<TimerView>('/api/timers', { name, targetMs, startedAt, placement })
     timers.value = [...timers.value, timer]
     return timer
   }
@@ -181,6 +211,25 @@ export const useTimersStore = defineStore('timers', () => {
       timers.value = timers.value.map((t) => (t.id === id ? timer : t))
       return timer
     })
+  }
+
+  async function createSection(name: string): Promise<SectionView> {
+    const section = await api.post<SectionView>('/api/sections', { name })
+    sections.value = [...sections.value, section]
+    return section
+  }
+
+  async function renameSection(id: number, name: string): Promise<SectionView> {
+    const section = await api.patch<SectionView>(`/api/sections/${id}`, { name })
+    sections.value = sections.value.map((s) => (s.id === id ? section : s))
+    return section
+  }
+
+  /** The server returns the section's timers to automatic placement (R6), so refetch them. */
+  async function deleteSection(id: number): Promise<void> {
+    await api.delete(`/api/sections/${id}`)
+    sections.value = sections.value.filter((s) => s.id !== id)
+    await fetchTimers({ silent: true })
   }
 
   async function deleteTimer(id: number): Promise<void> {
@@ -267,12 +316,14 @@ export const useTimersStore = defineStore('timers', () => {
 
   return {
     timers,
+    sections,
     status,
     loadError,
     rowErrors,
     logs,
     now,
     sorted,
+    grouped,
     byId,
     isHeld,
     isResetting,
@@ -284,6 +335,9 @@ export const useTimersStore = defineStore('timers', () => {
     createTimer,
     updateTimer,
     deleteTimer,
+    createSection,
+    renameSection,
+    deleteSection,
     reset,
     undoReset,
     fetchLog,
