@@ -1,13 +1,28 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { toLocalInput } from '../../shared/format.ts'
 import { DAY_MS, HOUR_MS, NAME_MAX, TARGET_MAX_MS, TARGET_MIN_MS } from '../../shared/limits.ts'
+import { CADENCES, CADENCE_LABELS } from '../../shared/sections.ts'
+import type { Placement, SectionView } from '../../shared/types.ts'
 
 type Unit = 'days' | 'hours'
 
+/** What the form sends. `newSection` asks the parent to create that section first (KTD4). */
+export interface TimerFormPayload {
+  name: string
+  targetMs: number | null
+  startedAt?: number
+  placement: Placement
+  newSection?: string
+}
+
+const NEW_SECTION = 'new'
+
 const props = withDefaults(
   defineProps<{
-    initial?: { name: string; targetMs: number | null }
+    initial?: { name: string; targetMs: number | null; placement?: Placement }
+    /** The user's custom sections for the picker. */
+    sections?: SectionView[]
     submitLabel?: string
     busy?: boolean
     error?: string | null
@@ -16,6 +31,7 @@ const props = withDefaults(
   }>(),
   {
     initial: () => ({ name: '', targetMs: null }),
+    sections: () => [],
     submitLabel: 'Save',
     busy: false,
     error: null,
@@ -23,9 +39,23 @@ const props = withDefaults(
   },
 )
 const emit = defineEmits<{
-  submit: [payload: { name: string; targetMs: number | null; startedAt?: number }]
+  submit: [payload: TimerFormPayload]
   cancel: []
 }>()
+
+/** The picker's value for a placement: `auto`, `cadence:<c>`, or `custom:<id>`. */
+function placementValue(placement: Placement | undefined): string {
+  if (placement?.kind === 'cadence') return `cadence:${placement.cadence}`
+  if (placement?.kind === 'custom') return `custom:${placement.sectionId}`
+  return 'auto'
+}
+
+function placementFrom(value: string): Placement {
+  const [kind, rest] = value.split(':')
+  if (kind === 'cadence') return { kind: 'cadence', cadence: CADENCES.find((c) => c === rest)! }
+  if (kind === 'custom') return { kind: 'custom', sectionId: Number(rest) }
+  return { kind: 'auto' }
+}
 
 function startingTarget(targetMs: number | null): { amount: string; unit: Unit } {
   if (targetMs === null) return { amount: '', unit: 'days' }
@@ -39,7 +69,24 @@ const amount = ref(start.amount)
 const unit = ref<Unit>(start.unit)
 const maxStart = toLocalInput(Date.now())
 const started = ref(maxStart)
+const section = ref(placementValue(props.initial.placement))
+const sortedSections = computed(() =>
+  [...props.sections].sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
+  ),
+)
+const newSection = ref('')
 const problem = ref<string | null>(null)
+
+/** The placement fields of the payload, or an error message. */
+function placementPart(): Pick<TimerFormPayload, 'placement' | 'newSection'> | string {
+  if (section.value !== NEW_SECTION) return { placement: placementFrom(section.value) }
+  const trimmed = newSection.value.trim()
+  if (trimmed.length < 1 || trimmed.length > NAME_MAX) {
+    return `Section name must be 1 to ${NAME_MAX} characters.`
+  }
+  return { placement: { kind: 'auto' }, newSection: trimmed }
+}
 
 function submit(): void {
   const trimmed = name.value.trim()
@@ -56,9 +103,14 @@ function submit(): void {
       return
     }
   }
+  const placed = placementPart()
+  if (typeof placed === 'string') {
+    problem.value = placed
+    return
+  }
   if (!props.withStart) {
     problem.value = null
-    emit('submit', { name: trimmed, targetMs })
+    emit('submit', { name: trimmed, targetMs, ...placed })
     return
   }
   const startedAt = new Date(started.value).getTime()
@@ -71,7 +123,7 @@ function submit(): void {
     return
   }
   problem.value = null
-  emit('submit', { name: trimmed, targetMs, startedAt })
+  emit('submit', { name: trimmed, targetMs, startedAt, ...placed })
 }
 </script>
 
@@ -120,6 +172,31 @@ function submit(): void {
         </select>
       </div>
     </fieldset>
+    <label class="block">
+      <span class="mb-1 block text-sm font-medium">Section</span>
+      <select v-model="section" name="section" class="field">
+        <option value="auto">Automatic (from target)</option>
+        <option v-for="c in CADENCES" :key="c" :value="`cadence:${c}`">
+          {{ CADENCE_LABELS[c] }}
+        </option>
+        <option v-for="s in sortedSections" :key="s.id" :value="`custom:${s.id}`">
+          {{ s.name }}
+        </option>
+        <option :value="NEW_SECTION">New section…</option>
+      </select>
+    </label>
+    <label v-if="section === NEW_SECTION" class="block">
+      <span class="mb-1 block text-sm font-medium">New section name</span>
+      <input
+        v-model="newSection"
+        name="newSection"
+        type="text"
+        :maxlength="NAME_MAX"
+        autocomplete="off"
+        placeholder="House"
+        class="field"
+      />
+    </label>
     <p v-if="problem || error" role="alert" class="notice-error">{{ problem ?? error }}</p>
     <div class="flex justify-end gap-2">
       <button type="button" class="btn btn-quiet" @click="emit('cancel')">Cancel</button>

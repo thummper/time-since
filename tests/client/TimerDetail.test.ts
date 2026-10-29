@@ -1,12 +1,22 @@
 // @vitest-environment jsdom
 import { flushPromises } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { DAY, installFetch, listRoute, resetView, timerView, type Route } from './helpers.ts'
+import {
+  DAY,
+  installFetch,
+  listRoute,
+  resetView,
+  sectionsListRoute,
+  timerView,
+  type Route,
+} from './helpers.ts'
+import { COLLAPSED_KEY } from '../../src/client/collapsed.ts'
 import { meRoute, mountApp, REAL_USER } from './mountApp.ts'
 
 afterEach(() => {
   vi.unstubAllGlobals()
   document.body.innerHTML = ''
+  localStorage.clear()
 })
 
 const timer = timerView({
@@ -190,5 +200,63 @@ describe('TimerDetail', () => {
     await flushPromises()
     expect(calls.some((c) => c.method === 'DELETE')).toBe(true)
     await vi.waitFor(() => expect(router.currentRoute.value.fullPath).toBe('/'))
+  })
+
+  describe('section picker', () => {
+    const openEdit = async (wrapper: Awaited<ReturnType<typeof mountApp>>['wrapper']) => {
+      await wrapper
+        .findAll('button')
+        .find((b) => b.text() === 'Rename or change target')!
+        .trigger('click')
+    }
+
+    it('keeps the custom section when only the target changes (AE2)', async () => {
+      const inHouse = timerView({
+        id: 1,
+        name: 'Aquarium',
+        targetMs: 3 * DAY,
+        placement: { kind: 'custom', sectionId: 7 },
+      })
+      const { calls } = installFetch([
+        meRoute(REAL_USER),
+        sectionsListRoute([{ id: 7, name: 'House' }], inHouse),
+        resetsRoute,
+        ['PATCH', /^\/api\/timers\/1$/, () => [200, inHouse]],
+      ])
+      const { wrapper } = await mountApp('/timers/1')
+      await openEdit(wrapper)
+      expect((wrapper.find('select[name="section"]').element as HTMLSelectElement).value).toBe(
+        'custom:7',
+      )
+      await wrapper.find('input[name="amount"]').setValue('1')
+      await wrapper.find('form').trigger('submit')
+      await flushPromises()
+      expect(calls.find((c) => c.method === 'PATCH')!.body).toEqual({
+        name: 'Aquarium',
+        targetMs: DAY,
+        placement: { kind: 'custom', sectionId: 7 },
+      })
+    })
+
+    it('opens the destination section on the list after a move', async () => {
+      localStorage.setItem(COLLAPSED_KEY, JSON.stringify(['monthly']))
+      const moved = timerView({
+        id: 1,
+        name: 'Aquarium',
+        placement: { kind: 'cadence', cadence: 'monthly' },
+      })
+      installFetch([
+        meRoute(REAL_USER),
+        listRoute(timer),
+        resetsRoute,
+        ['PATCH', /^\/api\/timers\/1$/, () => [200, moved]],
+      ])
+      const { wrapper } = await mountApp('/timers/1')
+      await openEdit(wrapper)
+      await wrapper.find('select[name="section"]').setValue('cadence:monthly')
+      await wrapper.find('form').trigger('submit')
+      await flushPromises()
+      expect(JSON.parse(localStorage.getItem(COLLAPSED_KEY)!)).toEqual([])
+    })
   })
 })

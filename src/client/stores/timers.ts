@@ -219,6 +219,21 @@ export const useTimersStore = defineStore('timers', () => {
     return section
   }
 
+  /** The placement to save; creates the section first when the form asked for a new one (KTD4). */
+  async function placementFor(form: {
+    placement: Placement
+    newSection?: string
+  }): Promise<Placement> {
+    if (form.newSection === undefined) return form.placement
+    const section = await createSection(form.newSection)
+    return { kind: 'custom', sectionId: section.id }
+  }
+
+  /** The section key a timer shows in now. */
+  function sectionOf(timer: TimerView): SectionKey {
+    return sectionKeyOf(timer, sections.value, now.value)
+  }
+
   /** The server returns the section's timers to automatic placement (R6), so refetch them. */
   async function deleteSection(id: number): Promise<void> {
     await api.delete(`/api/sections/${id}`)
@@ -332,6 +347,8 @@ export const useTimersStore = defineStore('timers', () => {
     createSection,
     renameSection,
     deleteSection,
+    placementFor,
+    sectionOf,
     reset,
     undoReset,
     fetchLog,

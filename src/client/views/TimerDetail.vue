@@ -11,7 +11,8 @@ import ConfirmDialog from '../components/ConfirmDialog.vue'
 import GapGraph from '../components/GapGraph.vue'
 import ModalFrame from '../components/ModalFrame.vue'
 import StatsPanel from '../components/StatsPanel.vue'
-import TimerForm from '../components/TimerForm.vue'
+import TimerForm, { type TimerFormPayload } from '../components/TimerForm.vue'
+import { expandSection } from '../collapsed.ts'
 import { onAppFocus } from '../stores/focus.ts'
 import { useTimersStore } from '../stores/timers.ts'
 
@@ -94,11 +95,17 @@ function openDelete(): void {
   confirmingDelete.value = true
 }
 
-async function saveTimer(payload: { name: string; targetMs: number | null }): Promise<void> {
+async function saveTimer(payload: TimerFormPayload): Promise<void> {
   editBusy.value = true
   editError.value = null
   try {
-    await timers.updateTimer(id.value, payload)
+    const placement = await timers.placementFor(payload)
+    const saved = await timers.updateTimer(id.value, {
+      name: payload.name,
+      targetMs: payload.targetMs,
+      placement,
+    })
+    if (saved) expandSection(timers.sectionOf(saved))
     editing.value = false
   } catch (e) {
     editError.value = errorMessage(e)
@@ -272,7 +279,8 @@ async function removeEntry(): Promise<void> {
 
       <ModalFrame v-if="editing" title="Edit timer" @close="editing = false">
         <TimerForm
-          :initial="{ name: timer.name, targetMs: timer.targetMs }"
+          :initial="{ name: timer.name, targetMs: timer.targetMs, placement: timer.placement }"
+          :sections="timers.sections"
           :busy="editBusy"
           :error="editError"
           @submit="saveTimer"

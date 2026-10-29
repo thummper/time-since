@@ -9,7 +9,7 @@ import ModalFrame from '../components/ModalFrame.vue'
 import ResetDialog from '../components/ResetDialog.vue'
 import SectionGroup from '../components/SectionGroup.vue'
 import TimerCard from '../components/TimerCard.vue'
-import TimerForm from '../components/TimerForm.vue'
+import TimerForm, { type TimerFormPayload } from '../components/TimerForm.vue'
 import { useTimersStore } from '../stores/timers.ts'
 import { useToastsStore } from '../stores/toasts.ts'
 import type { TimerView } from '../../shared/types.ts'
@@ -58,15 +58,18 @@ async function submitDialog(payload: { at: number; note: string | null }): Promi
   if (timer) await reset(timer, payload)
 }
 
-async function addTimer(payload: {
-  name: string
-  targetMs: number | null
-  startedAt?: number
-}): Promise<void> {
+async function addTimer(payload: TimerFormPayload): Promise<void> {
   addBusy.value = true
   addError.value = null
   try {
-    await timers.createTimer(payload.name, payload.targetMs, payload.startedAt)
+    const placement = await timers.placementFor(payload)
+    const timer = await timers.createTimer(
+      payload.name,
+      payload.targetMs,
+      payload.startedAt,
+      placement,
+    )
+    collapsed.expand(timers.sectionOf(timer))
     adding.value = false
   } catch (e) {
     addError.value = errorMessage(e)
@@ -161,6 +164,7 @@ function openAdd(): void {
       <TimerForm
         submit-label="Add timer"
         with-start
+        :sections="timers.sections"
         :busy="addBusy"
         :error="addError"
         @submit="addTimer"

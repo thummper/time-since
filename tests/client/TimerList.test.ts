@@ -405,5 +405,79 @@ describe('TimerList', () => {
       const { wrapper } = await mountApp('/')
       expect(cardNames(wrapper)).toEqual(['Older', 'Recent'])
     })
+
+    const addTimer = async (
+      wrapper: Awaited<ReturnType<typeof mountApp>>['wrapper'],
+      fill: (dialog: ReturnType<typeof wrapper.find>) => Promise<void>,
+    ) => {
+      await wrapper
+        .findAll('button')
+        .find((b) => b.text().includes('Add timer'))!
+        .trigger('click')
+      const dialog = wrapper.find('[role="dialog"]')
+      await dialog.find('input[name="name"]').setValue('Sheets')
+      await fill(dialog)
+      await dialog.find('form').trigger('submit')
+      await flushPromises()
+    }
+
+    it('creates a new section first, then the timer in it', async () => {
+      const created = timerView({
+        id: 5,
+        name: 'Sheets',
+        placement: { kind: 'custom', sectionId: 9 },
+      })
+      const { calls } = installFetch([
+        meRoute(REAL_USER),
+        listRoute(timerView({ id: 1, name: 'Plants' })),
+        ['POST', /^\/api\/sections$/, () => [201, { id: 9, name: 'Bedroom' }]],
+        ['POST', /^\/api\/timers$/, () => [201, created]],
+      ])
+      const { wrapper } = await mountApp('/')
+      await addTimer(wrapper, async (dialog) => {
+        await dialog.find('select[name="section"]').setValue('new')
+        await dialog.find('input[name="newSection"]').setValue('Bedroom')
+      })
+      const posts = calls.filter((c) => c.method === 'POST').map((c) => [c.path, c.body])
+      expect(posts[0]).toEqual(['/api/sections', { name: 'Bedroom' }])
+      expect(posts[1]![0]).toBe('/api/timers')
+      expect(posts[1]![1]).toMatchObject({ placement: { kind: 'custom', sectionId: 9 } })
+      expect(wrapper.find('section[data-section="custom:9"]').text()).toContain('Sheets')
+    })
+
+    it('keeps the form open with the error when the section create fails', async () => {
+      const { count } = installFetch([
+        meRoute(REAL_USER),
+        listRoute(timerView({ id: 1, name: 'Plants' })),
+        [
+          'POST',
+          /^\/api\/sections$/,
+          () => [422, { error: 'A section with this name already exists' }],
+        ],
+      ])
+      const { wrapper } = await mountApp('/')
+      await addTimer(wrapper, async (dialog) => {
+        await dialog.find('select[name="section"]').setValue('new')
+        await dialog.find('input[name="newSection"]').setValue('Bedroom')
+      })
+      const dialog = wrapper.find('[role="dialog"]')
+      expect(dialog.exists()).toBe(true)
+      expect(dialog.find('[role="alert"]').text()).toContain('already exists')
+      expect(count('POST', /^\/api\/timers$/)).toBe(0)
+    })
+
+    it('opens a collapsed section when a new timer is saved into it (R15)', async () => {
+      localStorage.setItem(COLLAPSED_KEY, JSON.stringify(['weekly']))
+      const created = timerView({ id: 5, name: 'Sheets', targetMs: 3 * DAY })
+      installFetch([
+        meRoute(REAL_USER),
+        listRoute(timerView({ id: 1, name: 'Towels', targetMs: 3 * DAY })),
+        ['POST', /^\/api\/timers$/, () => [201, created]],
+      ])
+      const { wrapper } = await mountApp('/')
+      expect(cardNames(wrapper)).toEqual([])
+      await addTimer(wrapper, (dialog) => dialog.find('input[name="amount"]').setValue('3'))
+      expect(cardNames(wrapper)).toEqual(['Towels', 'Sheets'])
+    })
   })
 })
