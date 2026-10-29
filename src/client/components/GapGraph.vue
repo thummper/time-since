@@ -34,6 +34,8 @@ const scaleMs = computed(() =>
   Math.max(1, current.value.ms, props.goal?.ms ?? 0, gapRange.value.max),
 )
 const heightPct = (ms: number) => `${(ms / scaleMs.value) * 100}%`
+/** Above the top 15% the label would leave the scroll box, which clips it, so it goes below the line. */
+const goalLabelBelow = computed(() => (props.goal ? props.goal.ms / scaleMs.value > 0.85 : false))
 // The track is `max(slots, 31)` box-thirty-firsts wide, so each slot is one share of the track.
 const trackSlots = computed(() => Math.max(slots.value, VISIBLE_SLOTS))
 const trackWidth = computed(() => `${(trackSlots.value / VISIBLE_SLOTS) * 100}%`)
@@ -100,7 +102,10 @@ watch(slots, (count, previous) => {
           :style="{ bottom: heightPct(goal.ms) }"
         >
           <span
-            class="absolute right-0 bottom-0.5 rounded bg-surface px-1 text-[0.6875rem] text-muted"
+            class="absolute right-0 rounded bg-surface px-1 text-[0.6875rem] text-muted"
+            :class="goalLabelBelow ? 'top-0.5' : 'bottom-0.5'"
+            data-testid="goal-label"
+            :data-side="goalLabelBelow ? 'below' : 'above'"
           >
             {{ goal.kind }} {{ formatElapsed(goal.ms) }}
           </span>

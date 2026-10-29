@@ -93,6 +93,14 @@ describe('GapGraph', () => {
     ).toBe(false)
   })
 
+  it('puts the goal label below the line when the goal is near the top, so it is not clipped', () => {
+    const topGoal = mountGraph(log([3, 5]), { kind: 'target', ms: 20 * DAY })
+    const label = topGoal.find('[data-testid="goal-label"]')
+    expect(label.attributes('data-side')).toBe('below')
+    const lowGoal = mountGraph(log([3, 5]), { kind: 'average', ms: 4 * DAY })
+    expect(lowGoal.find('[data-testid="goal-label"]').attributes('data-side')).toBe('above')
+  })
+
   it('gives each bar an accessible name with its length', () => {
     const wrapper = mountGraph(log([3]))
     expect(gapBars(wrapper)[0]!.attributes('aria-label')).toContain('3d 0h')
