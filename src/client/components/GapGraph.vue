@@ -34,8 +34,6 @@ const scaleMs = computed(() =>
   Math.max(1, current.value.ms, props.goal?.ms ?? 0, gapRange.value.max),
 )
 const heightPct = (ms: number) => `${(ms / scaleMs.value) * 100}%`
-/** Above the top 15% the label would leave the scroll box, which clips it, so it goes below the line. */
-const goalLabelBelow = computed(() => (props.goal ? props.goal.ms / scaleMs.value > 0.85 : false))
 // The track is `max(slots, 31)` box-thirty-firsts wide, so each slot is one share of the track.
 const trackSlots = computed(() => Math.max(slots.value, VISIBLE_SLOTS))
 const trackWidth = computed(() => `${(trackSlots.value / VISIBLE_SLOTS) * 100}%`)
@@ -86,7 +84,18 @@ watch(slots, (count, previous) => {
 
 <template>
   <section class="card space-y-2 p-3" data-testid="gap-graph">
-    <h2 class="text-sm font-semibold text-muted">Gaps between resets</h2>
+    <div class="flex items-baseline justify-between gap-2">
+      <h2 class="text-sm font-semibold text-muted">Gaps between resets</h2>
+      <!-- The key lives outside the plot, so it never covers bars or gets clipped. -->
+      <p
+        v-if="goal"
+        class="flex shrink-0 items-center gap-1.5 text-xs text-muted"
+        data-testid="goal-key"
+      >
+        <span aria-hidden="true" class="w-4 border-t border-dashed border-muted" />
+        {{ goal.kind }} {{ formatElapsed(goal.ms) }}
+      </p>
+    </div>
     <p class="sr-only">{{ summary }}</p>
 
     <div ref="box" class="overflow-x-auto">
@@ -101,16 +110,7 @@ watch(slots, (count, previous) => {
           class="pointer-events-none absolute inset-x-0 border-t border-dashed border-muted"
           data-testid="goal-line"
           :style="{ bottom: heightPct(goal.ms) }"
-        >
-          <span
-            class="absolute right-0 rounded bg-surface px-1 text-[0.6875rem] text-muted"
-            :class="goalLabelBelow ? 'top-0.5' : 'bottom-0.5'"
-            data-testid="goal-label"
-            :data-side="goalLabelBelow ? 'below' : 'above'"
-          >
-            {{ goal.kind }} {{ formatElapsed(goal.ms) }}
-          </span>
-        </div>
+        />
 
         <button
           v-for="gap in gaps"

@@ -39,7 +39,7 @@ describe('TimerDetail', () => {
     const graph = wrapper.find('[data-testid="gap-graph"]')
     expect(graph.findAll('[data-testid="gap-bar"]')).toHaveLength(2)
     expect(graph.findAll('[data-testid="current-bar"]')).toHaveLength(1)
-    expect(graph.find('[data-testid="goal-line"]').text()).toContain('average')
+    expect(graph.find('[data-testid="goal-key"]').text()).toContain('average')
   })
 
   it('updates the gap graph after a log entry is deleted', async () => {

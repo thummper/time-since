@@ -93,22 +93,19 @@ describe('GapGraph', () => {
     expect(wrapper.text()).toContain('fills in after the first reset')
   })
 
-  it('labels the goal line with its kind and hides it without a goal', () => {
-    const withGoal = mountGraph(log([3, 5]), { kind: 'average', ms: 4 * DAY })
-    expect(withGoal.find('[data-testid="goal-line"]').text()).toContain('average')
-    expect(
-      mountGraph(log([3, 5]))
-        .find('[data-testid="goal-line"]')
-        .exists(),
-    ).toBe(false)
+  it('draws the goal line and names it in a key outside the plot', () => {
+    const withGoal = mountGraph(log([3, 5]), { kind: 'target', ms: 20 * DAY })
+    expect(withGoal.find('[data-testid="goal-line"]').exists()).toBe(true)
+    const key = withGoal.find('[data-testid="goal-key"]')
+    expect(key.text()).toContain('target 20d 0h')
+    // The key is not inside the scrolling plot, so it cannot cover bars or be clipped.
+    expect(withGoal.find('[data-testid="gap-track"] [data-testid="goal-key"]').exists()).toBe(false)
   })
 
-  it('puts the goal label below the line when the goal is near the top, so it is not clipped', () => {
-    const topGoal = mountGraph(log([3, 5]), { kind: 'target', ms: 20 * DAY })
-    const label = topGoal.find('[data-testid="goal-label"]')
-    expect(label.attributes('data-side')).toBe('below')
-    const lowGoal = mountGraph(log([3, 5]), { kind: 'average', ms: 4 * DAY })
-    expect(lowGoal.find('[data-testid="goal-label"]').attributes('data-side')).toBe('above')
+  it('shows no goal line or key without a goal', () => {
+    const wrapper = mountGraph(log([3, 5]))
+    expect(wrapper.find('[data-testid="goal-line"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="goal-key"]').exists()).toBe(false)
   })
 
   it('gives each bar an accessible name with its length', () => {
