@@ -36,6 +36,20 @@ export interface TimerList {
   sections: SectionView[]
 }
 
+/**
+ * Counts for the admin page. Demo sandboxes are left out of every count except `demo`.
+ * Active counts come from `last_seen_at`, so they start at zero when tracking begins.
+ */
+export interface AdminStats {
+  now: number
+  accounts: { real: number; realCap: number; demo: number; demoCap: number }
+  active: { day: number; week: number; month: number }
+  /** Real users with a session that has not expired. */
+  signedIn: number
+  signups: { week: number; month: number }
+  content: { timers: number; resets: number; pushSubscriptions: number }
+}
+
 export interface ResetView {
   id: number
   at: number

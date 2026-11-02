@@ -10,6 +10,8 @@ export const users = sqliteTable('users', {
   passwordHash: text('password_hash'),
   isDemo: integer('is_demo', { mode: 'boolean' }).notNull().default(false),
   createdAt: integer('created_at').notNull(),
+  /** Last authenticated request, written at most once per hour. Null until the first one. */
+  lastSeenAt: integer('last_seen_at'),
 })
 
 export const sessions = sqliteTable('sessions', {

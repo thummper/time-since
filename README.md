@@ -69,6 +69,7 @@ The DNS for `thummper.net` must be on Cloudflare.
 | `VAPID_PUBLIC_KEY`  | from step 1                                                  |
 | `VAPID_PRIVATE_KEY` | from step 1                                                  |
 | `VAPID_SUBJECT`     | `mailto:you@example.com`                                     |
+| `ADMIN_EMAILS`      | optional, comma-separated emails of the accounts that may open `/admin` |
 | `DATA_DIR`          | optional, host folder for the database (default `/docker/time-since`) |
 | `IMAGE_TAG`         | optional, image tag to run (default `latest`)                |
 
