@@ -1,7 +1,7 @@
 import { count, eq } from 'drizzle-orm'
 import { Hono, type MiddlewareHandler } from 'hono'
 import type { Db } from '../db/client.ts'
-import { users } from '../db/schema.ts'
+import { users, type User } from '../db/schema.ts'
 import { readJson } from '../http.ts'
 import { removeOwnedSubscription } from '../push/subscriptions.ts'
 import { loginLimiters, registerLimiter, type LimitSettings } from '../security/rateLimit.ts'
@@ -21,6 +21,7 @@ export interface AuthRouteOptions {
   cookie: CookieSettings
   limits: LimitSettings
   maxRealAccounts: number
+  isAdmin: (user: User) => boolean
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -37,8 +38,15 @@ export function authRoutes({
   cookie,
   limits,
   maxRealAccounts,
+  isAdmin,
 }: AuthRouteOptions): Hono<AuthEnv> {
   const routes = new Hono<AuthEnv>()
+  const view = (user: User) => ({
+    id: user.id,
+    email: user.email,
+    isDemo: user.isDemo,
+    isAdmin: isAdmin(user),
+  })
 
   routes.post('/register', registerLimiter(limits), async (c) => {
     const body = await readJson(c)
@@ -74,7 +82,7 @@ export function authRoutes({
     }
     const session = createSession(db, user.id)
     setSessionCookie(c, cookie, session.token, session.expiresAt)
-    return c.json({ user: { id: user.id, email: user.email } }, 201)
+    return c.json({ user: view(user) }, 201)
   })
 
   const [loginByIp, loginByEmail] = loginLimiters(limits) as [MiddlewareHandler, MiddlewareHandler]
@@ -87,7 +95,7 @@ export function authRoutes({
     if (!user || !ok) return c.json({ error: GENERIC_LOGIN_ERROR }, 401)
     const session = createSession(db, user.id)
     setSessionCookie(c, cookie, session.token, session.expiresAt)
-    return c.json({ user: { id: user.id, email: user.email } })
+    return c.json({ user: view(user) })
   })
 
   routes.post('/logout', async (c) => {
@@ -107,7 +115,7 @@ export function authRoutes({
   routes.get('/me', (c) => {
     const user = c.var.user
     if (!user) return c.json({ error: 'Not logged in' }, 401)
-    return c.json({ user: { id: user.id, email: user.email, isDemo: user.isDemo } })
+    return c.json({ user: view(user) })
   })
 
   return routes

@@ -9,10 +9,11 @@ export interface SessionUser {
   id: number
   email: string
   isDemo: boolean
+  isAdmin: boolean
 }
 
 interface UserReply {
-  user: { id: number; email: string; isDemo?: boolean }
+  user: { id: number; email: string; isDemo?: boolean; isAdmin?: boolean }
 }
 
 /** Drops the previous user's data. */
@@ -22,7 +23,12 @@ function forgetData(): void {
 }
 
 function toUser(reply: UserReply): SessionUser {
-  return { id: reply.user.id, email: reply.user.email, isDemo: reply.user.isDemo ?? false }
+  return {
+    id: reply.user.id,
+    email: reply.user.email,
+    isDemo: reply.user.isDemo ?? false,
+    isAdmin: reply.user.isAdmin ?? false,
+  }
 }
 
 export const useAuthStore = defineStore('auth', () => {

@@ -2,7 +2,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import { eq, lt } from 'drizzle-orm'
 import type { Db } from '../db/client.ts'
 import { sessions, users, type User } from '../db/schema.ts'
-import { DAY_MS } from '../../shared/limits.ts'
+import { DAY_MS, HOUR_MS } from '../../shared/limits.ts'
 
 export const SESSION_LIFETIME_MS = 30 * DAY_MS
 export const SESSION_RENEW_BELOW_MS = 15 * DAY_MS
@@ -51,6 +51,15 @@ export function resolveSession(db: Db, token: string, now = Date.now()): Resolve
     return { user: row.user, renewedExpiresAt }
   }
   return { user: row.user, renewedExpiresAt: null }
+}
+
+/** How stale `lastSeenAt` may get before a request writes it again. */
+export const LAST_SEEN_INTERVAL_MS = HOUR_MS
+
+/** Records activity for the admin stats. Writes at most once per interval per user. */
+export function touchLastSeen(db: Db, user: User, now: number): void {
+  if (user.lastSeenAt !== null && now - user.lastSeenAt < LAST_SEEN_INTERVAL_MS) return
+  db.update(users).set({ lastSeenAt: now }).where(eq(users.id, user.id)).run()
 }
 
 export function deleteSession(db: Db, token: string): void {

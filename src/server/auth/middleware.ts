@@ -2,7 +2,7 @@ import type { Context, MiddlewareHandler } from 'hono'
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 import type { Db } from '../db/client.ts'
 import type { User } from '../db/schema.ts'
-import { resolveSession, SESSION_LIFETIME_MS } from './sessions.ts'
+import { resolveSession, SESSION_LIFETIME_MS, touchLastSeen } from './sessions.ts'
 
 export const SESSION_COOKIE = 'session'
 
@@ -38,12 +38,20 @@ export function clearSessionCookie(c: Context, cookie: CookieSettings): void {
   deleteCookie(c, SESSION_COOKIE, { path: '/', secure: cookie.secure })
 }
 
-/** Resolves the session cookie into `c.var.user` (null when absent or invalid). */
-export function authMiddleware(db: Db, cookie: CookieSettings): MiddlewareHandler<AuthEnv> {
+/**
+ * Resolves the session cookie into `c.var.user` (null when absent or invalid),
+ * and records the user's activity for the admin stats.
+ */
+export function authMiddleware(
+  db: Db,
+  cookie: CookieSettings,
+  now: () => number = Date.now,
+): MiddlewareHandler<AuthEnv> {
   return async (c, next) => {
     const token = getCookie(c, SESSION_COOKIE)
     const resolved = token ? resolveSession(db, token) : null
     c.set('user', resolved?.user ?? null)
+    if (resolved) touchLastSeen(db, resolved.user, now())
     if (token && resolved?.renewedExpiresAt)
       setSessionCookie(c, cookie, token, resolved.renewedExpiresAt)
     await next()
@@ -54,6 +62,16 @@ export function authMiddleware(db: Db, cookie: CookieSettings): MiddlewareHandle
 export const requireUser: MiddlewareHandler<AuthEnv> = async (c, next) => {
   if (!c.var.user) return c.json({ error: 'Not logged in' }, 401)
   await next()
+}
+
+/** Rejects requests from anyone but an admin. Use after `authMiddleware`. */
+export function requireAdmin(isAdmin: (user: User) => boolean): MiddlewareHandler<AuthEnv> {
+  return async (c, next) => {
+    const user = c.var.user
+    if (!user) return c.json({ error: 'Not logged in' }, 401)
+    if (!isAdmin(user)) return c.json({ error: 'Admins only' }, 403)
+    await next()
+  }
 }
 
 /** Rejects demo users with 403. Use after `authMiddleware`, on push and account routes (KTD9). */

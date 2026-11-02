@@ -15,6 +15,13 @@
       "when": 1793300853434,
       "tag": "0001_mighty_karnak",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793634236174,
+      "tag": "0002_free_masked_marvel",
+      "breakpoints": true
     }
   ]
 }

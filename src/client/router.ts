@@ -29,6 +29,12 @@ export function createAppRouter(history: RouterHistory = createWebHistory()) {
         component: () => import('./views/Settings.vue'),
         meta: { auth: true },
       },
+      {
+        path: '/admin',
+        name: 'admin',
+        component: () => import('./views/Admin.vue'),
+        meta: { auth: true, admin: true },
+      },
       { path: '/welcome', name: 'welcome', component: () => import('./views/Welcome.vue') },
       { path: '/login', name: 'login', component: () => import('./views/Login.vue') },
       { path: '/register', name: 'register', component: () => import('./views/Register.vue') },
@@ -42,6 +48,8 @@ export function createAppRouter(history: RouterHistory = createWebHistory()) {
     if (to.meta.auth && !auth.user) {
       return { name: 'welcome', query: { redirect: to.fullPath } }
     }
+    // The server also refuses the stats to non-admins; this only hides the page.
+    if (to.meta.admin && !auth.user?.isAdmin) return { name: 'list' }
     // A demo visitor may still open sign-up from the demo banner.
     if (!to.meta.auth && auth.user && !auth.user.isDemo) return { name: 'list' }
     return true

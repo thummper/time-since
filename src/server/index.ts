@@ -26,6 +26,8 @@ const app = createApp({
   publicOrigin: process.env.PUBLIC_ORIGIN ?? 'http://localhost:5173',
   // RATE_LIMIT_RELAXED=1 raises the auth limits for the e2e run.
   limits: process.env.RATE_LIMIT_RELAXED === '1' ? relaxLimits(DEFAULT_LIMITS) : DEFAULT_LIMITS,
+  // A comma-separated list of the accounts that may open /admin.
+  adminEmails: (process.env.ADMIN_EMAILS ?? '').split(',').filter((email) => email.trim()),
 })
 
 serve({ fetch: app.fetch, port }, (info) => {

@@ -67,6 +67,16 @@ async function leave(): Promise<void> {
 
     <SectionsCard />
 
+    <RouterLink
+      v-if="auth.user?.isAdmin"
+      to="/admin"
+      class="card flex min-h-[44px] items-center justify-between p-4 font-semibold"
+      data-testid="admin-link"
+    >
+      Admin
+      <AppIcon name="back" class="rotate-180" />
+    </RouterLink>
+
     <NotificationToggle v-if="auth.user && !auth.user.isDemo" />
 
     <div class="card space-y-3 p-4">

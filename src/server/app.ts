@@ -3,10 +3,12 @@ import { extname, join, normalize, resolve, sep } from 'node:path'
 import { Hono } from 'hono'
 import { csrf } from 'hono/csrf'
 import { secureHeaders } from 'hono/secure-headers'
+import { adminRoutes } from './admin/routes.ts'
 import { authMiddleware, type AuthEnv } from './auth/middleware.ts'
 import { authRoutes } from './auth/routes.ts'
 import { demoRoutes, MAX_DEMO_USERS } from './demo/routes.ts'
 import { openDb, type Db } from './db/client.ts'
+import type { User } from './db/schema.ts'
 import { pushRoutes } from './push/routes.ts'
 import { DEFAULT_LIMITS, type LimitSettings } from './security/rateLimit.ts'
 import { timerRoutes } from './timers/routes.ts'
@@ -33,6 +35,8 @@ export interface AppOptions {
   maxRealAccounts?: number
   /** Cap on live demo sandboxes (R7). */
   maxDemoUsers?: number
+  /** Emails of the accounts that may open the admin page (ADMIN_EMAILS). */
+  adminEmails?: readonly string[]
 }
 
 export const MAX_REAL_ACCOUNTS = 1000
@@ -76,30 +80,18 @@ export function createApp(options: AppOptions = {}): Hono<AuthEnv> {
   const limits = { ...DEFAULT_LIMITS, ...options.limits }
   const cookie = { secure: publicOrigin.startsWith('https://') }
   const now = options.now ?? Date.now
+  const maxRealAccounts = options.maxRealAccounts ?? MAX_REAL_ACCOUNTS
+  const maxDemoUsers = options.maxDemoUsers ?? MAX_DEMO_USERS
+  const admins = new Set((options.adminEmails ?? []).map((email) => email.trim().toLowerCase()))
+  const isAdmin = (user: User) => !user.isDemo && admins.has(user.email)
   const app = new Hono<AuthEnv>()
 
   app.use('/api/*', csrf({ origin: publicOrigin }), secureHeaders())
-  app.use('/api/*', authMiddleware(db, cookie))
-  app.route(
-    '/api/auth',
-    authRoutes({
-      db,
-      cookie,
-      limits,
-      maxRealAccounts: options.maxRealAccounts ?? MAX_REAL_ACCOUNTS,
-    }),
-  )
+  app.use('/api/*', authMiddleware(db, cookie, now))
+  app.route('/api/auth', authRoutes({ db, cookie, limits, maxRealAccounts, isAdmin }))
 
-  app.route(
-    '/api/demo',
-    demoRoutes({
-      db,
-      cookie,
-      limits,
-      now,
-      maxDemoUsers: options.maxDemoUsers ?? MAX_DEMO_USERS,
-    }),
-  )
+  app.route('/api/demo', demoRoutes({ db, cookie, limits, now, maxDemoUsers }))
+  app.route('/api/admin', adminRoutes({ db, now, isAdmin, maxRealAccounts, maxDemoUsers }))
 
   app.route('/api/timers', timerRoutes({ db, limits, now }))
   app.route('/api/sections', sectionRoutes({ db, limits, now }))
