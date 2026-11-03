@@ -1,13 +1,28 @@
 # Time Since
 
-A small web app that shows how long it has been since each chore was last done. You create a timer, tap Reset when you do the chore, and optionally set a target so the app sends a push alert when the timer is overdue. It installs as a PWA (Progressive Web App) and runs as one Node process with a SQLite file.
+**How long has it been since you last did that?**
 
-Stack: Hono and better-sqlite3 on the server, Vue 3 with Vite on the client.
+Time Since keeps a count-up timer for each chore or habit: cleaning the aquarium, watering the plants, changing the bed sheets. When you do the chore, you tap Reset and the timer starts again from zero. Set a target, and the app alerts you when a timer is overdue.
 
-<img width="597" height="686" alt="image" src="https://github.com/user-attachments/assets/a86710de-9518-444d-9e8e-a94cfab3b4bc" />
+**Try it at [time-since.app](https://time-since.app).** Start a demo with no sign-up, or create a free account.
 
+<img width="597" height="686" alt="The Time Since timer list, with a card for each chore that shows the time since it was last done" src="https://github.com/user-attachments/assets/a86710de-9518-444d-9e8e-a94cfab3b4bc" />
 
+## Features
 
+- **Timers that count up.** Each card shows the time since the last reset. You can set a past start time for a chore you did before you started to use the app.
+- **Targets and goal progress.** Give a timer a target, for example "every 7 days". The card shows how close the timer is to that target.
+- **Push alerts.** The app sends a notification when a timer goes past its target.
+- **History graph.** Each timer page shows a graph of the gaps between resets, so you can see if you do a chore more often or less often over time.
+- **Sections.** Group timers into sections, for example "Home" or "Pets", and collapse the sections you do not need.
+- **Installs like an app.** Time Since is a PWA (Progressive Web App). Add it to the home screen on Android or desktop, and it opens in its own window.
+- **Light and dark themes.**
+
+## Self-hosting
+
+Time Since runs as one Node process with one SQLite database file. A small server or a home lab is enough. The steps are in [Deployment](#deployment).
+
+Stack: [Hono](https://hono.dev) and better-sqlite3 on the server, Vue 3 with Vite on the client.
 
 ## Local development
 
@@ -19,7 +34,7 @@ cp .env.example .env   # optional, defaults work
 npm run dev            # API server on :3456, Vite client on :5173
 ```
 
-Set `PUBLIC_ORIGIN` to the URL you open in the browser (`http://localhost:5173` in dev). CSRF checks compare against it.
+Set `PUBLIC_ORIGIN` to the URL you open in the browser (`http://localhost:5173` in dev). CSRF (cross-site request forgery) checks compare against it.
 
 ## Tests
 
@@ -34,9 +49,13 @@ npm run test:e2e       # builds, starts a server on port 4173 with a temp databa
 
 ## Deployment
 
-The target is a Docker host (for example a Proxmox VM) managed with Portainer. One stack runs the app and a Cloudflare Tunnel, so you open no inbound ports. Run exactly one replica: SQLite has one writer.
+These steps use a Docker host (for example a Proxmox VM) managed with Portainer. One stack runs the app and a Cloudflare Tunnel, so you open no inbound ports. Run exactly one replica: SQLite has one writer.
+
+The examples use the hostname `time.example.com`. Replace it with your own.
 
 ### 1. Generate VAPID keys (once)
+
+Push alerts need VAPID (Voluntary Application Server Identification) keys.
 
 ```bash
 npm run vapid:generate
@@ -46,11 +65,11 @@ Save the three printed values. Never rotate the keys: every existing push subscr
 
 ### 2. Create the Cloudflare Tunnel
 
-The DNS for `thummper.net` must be on Cloudflare.
+The DNS for your domain must be on Cloudflare.
 
 1. In Cloudflare Zero Trust, go to Networks, Tunnels, and create a Cloudflared tunnel.
 2. Copy the tunnel token. It becomes `TUNNEL_TOKEN`.
-3. Add a public hostname, for example `time.thummper.net`, with service type HTTP and URL `http://app:3000`.
+3. Add a public hostname, for example `time.example.com`, with service type HTTP and URL `http://app:3000`.
 
 ### 3. Create the Portainer stack
 
@@ -62,20 +81,20 @@ The DNS for `thummper.net` must be on Cloudflare.
 3. In Portainer, go to Stacks, Add stack, Repository. Use this repository and `docker-compose.yml`.
 4. Add these environment variables:
 
-| Variable            | Value                                                        |
-| ------------------- | ------------------------------------------------------------ |
-| `PUBLIC_ORIGIN`     | `https://time.thummper.net` (the exact public origin, https) |
-| `TUNNEL_TOKEN`      | the tunnel token                                             |
-| `VAPID_PUBLIC_KEY`  | from step 1                                                  |
-| `VAPID_PRIVATE_KEY` | from step 1                                                  |
-| `VAPID_SUBJECT`     | `mailto:you@example.com`                                     |
+| Variable            | Value                                                                   |
+| ------------------- | ----------------------------------------------------------------------- |
+| `PUBLIC_ORIGIN`     | `https://time.example.com` (the exact public origin, https)             |
+| `TUNNEL_TOKEN`      | the tunnel token                                                        |
+| `VAPID_PUBLIC_KEY`  | from step 1                                                             |
+| `VAPID_PRIVATE_KEY` | from step 1                                                             |
+| `VAPID_SUBJECT`     | `mailto:you@example.com`                                                |
 | `ADMIN_EMAILS`      | optional, comma-separated emails of the accounts that may open `/admin` |
-| `DATA_DIR`          | optional, host folder for the database (default `/docker/time-since`) |
-| `IMAGE_TAG`         | optional, image tag to run (default `latest`)                |
+| `DATA_DIR`          | optional, host folder for the database (default `/docker/time-since`)   |
+| `IMAGE_TAG`         | optional, image tag to run (default `latest`)                           |
 
 5. Deploy the stack. Portainer pulls `ghcr.io/thummper/time-since`. The CI workflow must have run on `main` at least once, so the image exists.
-6. Open the public hostname. Check `https://<host>/api/health` returns `{"ok":true}`.
-7. On the Android phone, open the site in Chrome, install it, and enable alerts in Settings.
+6. Open the public hostname. Check that `https://<host>/api/health` returns `{"ok":true}`.
+7. On an Android phone, open the site in Chrome, install it, and turn on alerts in Settings.
 
 For a LAN test without the tunnel, uncomment `ports` in `docker-compose.yml` and set `PUBLIC_ORIGIN` to the LAN URL. Push needs https, so alerts only work through the tunnel.
 
